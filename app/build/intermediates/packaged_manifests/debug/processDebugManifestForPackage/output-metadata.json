@@ -4,7 +4,7 @@
     "type": "PACKAGED_MANIFESTS",
     "kind": "Directory"
   },
-  "applicationId": "com.campilot",
+  "applicationId": "com.crosscast",
   "variantName": "debug",
   "elements": [
     {

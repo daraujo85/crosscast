@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.campilot"
+    package="com.crosscast"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -20,29 +20,30 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
 
     <permission
-        android:name="com.campilot.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:name="com.crosscast.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="com.campilot.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+    <uses-permission android:name="com.crosscast.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
         android:allowBackup="true"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
         android:extractNativeLibs="false"
-        android:icon="@android:drawable/ic_menu_camera"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:testOnly="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar" >
         <service
-            android:name="com.campilot.CameraService"
+            android:name="com.crosscast.CameraService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="camera" />
 
+        <!-- Splash Screen - Entry Point -->
         <activity
-            android:name="com.campilot.MainActivity"
+            android:name="com.crosscast.SplashActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" >
             <intent-filter>
@@ -51,6 +52,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Mode Selection -->
+        <activity
+            android:name="com.crosscast.ModeSelectionActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
+        <!-- Main Camera Mode -->
+        <activity
+            android:name="com.crosscast.MainActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
+        <!-- Studio Mode -->
+        <activity
+            android:name="com.crosscast.StudioActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
 
         <service
             android:name="androidx.camera.core.impl.MetadataHolderService"
@@ -63,7 +82,7 @@
 
         <provider
             android:name="androidx.startup.InitializationProvider"
-            android:authorities="com.campilot.androidx-startup"
+            android:authorities="com.crosscast.androidx-startup"
             android:exported="false" >
             <meta-data
                 android:name="androidx.emoji2.text.EmojiCompatInitializer"
@@ -75,11 +94,6 @@
                 android:name="androidx.profileinstaller.ProfileInstallerInitializer"
                 android:value="androidx.startup" />
         </provider>
-
-        <service
-            android:name="androidx.room.MultiInstanceInvalidationService"
-            android:directBootAware="true"
-            android:exported="false" />
 
         <receiver
             android:name="androidx.profileinstaller.ProfileInstallReceiver"

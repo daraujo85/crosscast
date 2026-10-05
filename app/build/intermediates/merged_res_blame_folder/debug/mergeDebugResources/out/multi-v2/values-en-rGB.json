@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.campilot.app-mergeDebugResources-52:/values-en-rGB/values-en-rGB.xml",
+            "outputFile": "com.crosscast.app-mergeDebugResources-48:/values-en-rGB/values-en-rGB.xml",
             "map": [
                 {
                     "source": "C:\\Users\\usuario\\.gradle\\caches\\8.13\\transforms\\b78304317fa5b537c6dd7f9526157180\\transformed\\jetified-foundation-release\\res\\values-en-rGB\\values-en-rGB.xml",

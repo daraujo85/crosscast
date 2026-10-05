@@ -15,11 +15,11 @@ plugins {
 }
 
 android {
-    namespace = "com.campilot"
+    namespace = "com.crosscast"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.campilot"
+        applicationId = "com.crosscast"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

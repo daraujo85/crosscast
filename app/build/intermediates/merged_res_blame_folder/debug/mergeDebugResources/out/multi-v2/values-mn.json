@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.campilot.app-mergeDebugResources-52:/values-mn/values-mn.xml",
+            "outputFile": "com.crosscast.app-mergeDebugResources-48:/values-mn/values-mn.xml",
             "map": [
                 {
                     "source": "C:\\Users\\usuario\\.gradle\\caches\\8.13\\transforms\\8747d66961f2c6bbbc01986d38e4483d\\transformed\\appcompat-1.1.0\\res\\values-mn\\values-mn.xml",

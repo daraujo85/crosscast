@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.campilot.app-mergeDebugResources-52:/values-uz/values-uz.xml",
+            "outputFile": "com.crosscast.app-mergeDebugResources-48:/values-uz/values-uz.xml",
             "map": [
                 {
                     "source": "C:\\Users\\usuario\\.gradle\\caches\\8.13\\transforms\\2feb5487bbc05c5de51e77879fadd38a\\transformed\\jetified-material3-release\\res\\values-uz\\values-uz.xml",

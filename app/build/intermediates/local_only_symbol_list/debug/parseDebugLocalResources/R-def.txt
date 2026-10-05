@@ -1,3 +1,7 @@
 R_DEF: Internal format may change without notice
 local
+drawable ic_launcher_foreground
+drawable icon_camera
+drawable logo_crosscast
+mipmap ic_launcher
 string app_name
