@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -203,70 +205,75 @@ fun StudioContent(
                 holyricsUrl = "http://192.168.31.231/view/widescreen"
             )
         } else {
-            Card(
+            // PROGRAM 9:16 centralizado, menor que a tela toda
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp)
-                    .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
-                shape = RoundedCornerShape(12.dp)
+                    .height(220.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize()
+                Card(
+                    modifier = Modifier
+                        .aspectRatio(9f / 16f)
+                        .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    AndroidView(
-                        factory = { ctx ->
-                            PreviewView(ctx).apply {
-                                scaleType = PreviewView.ScaleType.FILL_CENTER
-                                cameraManager?.startCameraWithPreview(
-                                    lifecycleOwner = lifecycleOwner,
-                                    executor = ContextCompat.getMainExecutor(ctx),
-                                    previewView = this,
-                                    cameraId = "0"
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AndroidView(
+                            factory = { ctx ->
+                                PreviewView(ctx).apply {
+                                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                                    cameraManager?.startCameraWithPreview(
+                                        lifecycleOwner = lifecycleOwner,
+                                        executor = ContextCompat.getMainExecutor(ctx),
+                                        previewView = this,
+                                        cameraId = "0"
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        if (cameraManager == null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xFF0A0A0A)),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Videocam,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "Aguardando câmera...",
+                                    color = Color.White.copy(alpha = 0.3f),
+                                    style = MaterialTheme.typography.labelSmall
                                 )
                             }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                    if (cameraManager == null) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xFF0A0A0A)),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Videocam,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.2f),
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Aguardando câmera...",
-                                color = Color.White.copy(alpha = 0.3f),
-                                style = MaterialTheme.typography.labelSmall
-                            )
                         }
-                    }
-                    Surface(
-                        color = Color.Red.copy(alpha = 0.9f),
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(8.dp),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text("PROGRAM", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                    }
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(4.dp),
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(8.dp)
-                    ) {
-                        Text(text = obsState.activeScene?.name ?: "No scene", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = Color.White, style = MaterialTheme.typography.bodySmall)
+                        Surface(
+                            color = Color.Red.copy(alpha = 0.9f),
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(6.dp),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text("PROGRAM", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        }
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(4.dp),
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(6.dp)
+                        ) {
+                            Text(text = obsState.activeScene?.name ?: "No scene", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
             }
@@ -289,7 +296,11 @@ fun StudioContent(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize().padding(4.dp)
+                        ) {
                             Icon(
                                 imageVector = if (isActive) Icons.Default.PlayArrow else Icons.Default.VideoLibrary,
                                 contentDescription = null,
@@ -302,7 +313,9 @@ fun StudioContent(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White,
                                 maxLines = 1,
-                                fontSize = 10.sp
+                                fontSize = 10.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -317,11 +330,26 @@ fun StudioContent(
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
-            Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Text("TAKE", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Default.SwapHoriz,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    "TAKE",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
