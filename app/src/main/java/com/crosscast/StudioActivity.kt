@@ -91,6 +91,7 @@ class StudioActivity : ComponentActivity() {
 
     private lateinit var autoSwitchManager: AutoSwitchManager
     private lateinit var cameraManager: com.crosscast.camera.CameraManager
+    private lateinit var rtmpStreamer: RtmpStreamer
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -106,11 +107,14 @@ class StudioActivity : ComponentActivity() {
         hideSystemUI()
         autoSwitchManager = AutoSwitchManager(this, lifecycleScope)
         cameraManager = com.crosscast.camera.CameraManager(this)
+        rtmpStreamer = RtmpStreamer(this)
         autoSwitchManager.startHolyricsDetection()
         requestPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
         setContent {
             BackHandler { finish() }
             val obsState by autoSwitchManager.autoSwitchState.collectAsState()
+            val streamState by rtmpStreamer.streamState.collectAsState()
+            val streamAddress by rtmpStreamer.streamAddress.collectAsState()
             StudioContent(
                 obsState = obsState,
                 cameraManager = cameraManager,
@@ -119,6 +123,9 @@ class StudioActivity : ComponentActivity() {
                 onTake = { autoSwitchManager.nextScene() },
                 onToggleAutoSwitch = { autoSwitchManager.toggleAutoSwitch() },
                 onToggleDetection = { if (obsState.detectionActive) autoSwitchManager.stopHolyricsDetection() else autoSwitchManager.startHolyricsDetection() },
+                streamState = streamState,
+                streamAddress = streamAddress,
+                onToggleStream = { rtmpStreamer.toggleStream() },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -127,6 +134,7 @@ class StudioActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         autoSwitchManager.destroy()
+        rtmpStreamer.release()
     }
 
     private fun hideSystemUI() {
@@ -147,6 +155,10 @@ fun StudioContent(
     onTake: () -> Unit,
     onToggleAutoSwitch: () -> Unit,
     onToggleDetection: () -> Unit,
+    streamState: RtmpStreamer.StreamState = RtmpStreamer.StreamState.OFFLINE,
+    streamAddress: String = RtmpStreamer.DEFAULT_RTMP_URL,
+    onToggleStream: () -> Unit = {},
+    onStreamAddressChange: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -686,6 +698,102 @@ fun SplitScene(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun StreamingCard(
+    streamState: RtmpStreamer.StreamState,
+    streamAddress: String,
+    onToggleStream: () -> Unit,
+    onAddressChange: (String) -> Unit
+) {
+    val isLive = streamState == RtmpStreamer.StreamState.LIVE
+    val isConnecting = streamState == RtmpStreamer.StreamState.CONNECTING
+    
+    val statusColor = when (streamState) {
+        RtmpStreamer.StreamState.LIVE -> Color.Red
+        RtmpStreamer.StreamState.CONNECTING -> Color.Yellow
+        RtmpStreamer.StreamState.ERROR -> Color.Red.copy(alpha = 0.5f)
+        else -> TextTertiary
+    }
+    
+    val statusText = when (streamState) {
+        RtmpStreamer.StreamState.LIVE -> "LIVE"
+        RtmpStreamer.StreamState.CONNECTING -> "CONNECTING..."
+        RtmpStreamer.StreamState.ENCODING -> "ENCODING"
+        RtmpStreamer.StreamState.ERROR -> "ERROR"
+        RtmpStreamer.StreamState.OFFLINE -> "OFFLINE"
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Videocam,
+                        contentDescription = null,
+                        tint = statusColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("RTMP Stream", color = Color.White, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(statusColor)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(statusText, color = statusColor, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                
+                Button(
+                    onClick = onToggleStream,
+                    enabled = !isConnecting,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isLive) Color.Red else AppleGreen
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isLive) Icons.Default.Stop else Icons.Default.FiberManualRecord,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isLive) "STOP" else "START",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = streamAddress,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                maxLines = 1
+            )
         }
     }
 }

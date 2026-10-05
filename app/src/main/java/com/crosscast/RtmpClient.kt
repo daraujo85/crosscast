@@ -52,12 +52,10 @@ class RtmpClient {
             
             appName = parsed.app
             
-            // C0 + C1
             val c0c1 = createHandshakeC0C1()
             outputStream?.write(c0c1)
             outputStream?.flush()
             
-            // Read S0 + S1 + S2
             val s0s1s2 = ByteArray(HANDSHAKE_SIZE * 2 + 1)
             val bytesRead = socket?.getInputStream()?.read(s0s1s2) ?: -1
             if (bytesRead < HANDSHAKE_SIZE * 2 + 1) {
@@ -65,7 +63,6 @@ class RtmpClient {
                 return false
             }
             
-            // C2
             outputStream?.write(s0s1s2, 1, HANDSHAKE_SIZE)
             outputStream?.flush()
             
@@ -218,7 +215,8 @@ class RtmpClient {
                     out.write(header)
                     firstChunk = false
                 } else {
-                    out.write((3 shl 6) or (type and 0x3F))
+                    val fmt3 = ((3 shl 6) or (type and 0x3F))
+                    out.write(fmt3)
                 }
                 
                 val chunkLen = minOf(CHUNK_SIZE - (if (firstChunk) 0 else 1), data.size - offset)
@@ -236,7 +234,7 @@ class RtmpClient {
         val frameType = if (isKeyframe) 0x17 else 0x27
         val baos = ByteArrayOutputStream()
         baos.write(frameType)
-        baos.write(0x01) // AVC NALU
+        baos.write(0x01)
         baos.write(0x00); baos.write(0x00); baos.write(0x00)
         baos.write(data)
         return baos.toByteArray()
@@ -244,8 +242,8 @@ class RtmpClient {
 
     private fun createFlvAudioTag(data: ByteArray): ByteArray {
         val baos = ByteArrayOutputStream()
-        baos.write(0xAF) // AAC, 44kHz, 16bit, stereo
-        baos.write(0x01) // AAC raw
+        baos.write(0xAF)
+        baos.write(0x01)
         baos.write(data)
         return baos.toByteArray()
     }
