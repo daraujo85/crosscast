@@ -166,12 +166,12 @@ fun ModeCard(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .border(
-                width = 2.dp,
-                color = accentColor.copy(alpha = 0.5f),
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(20.dp)
             ),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.08f)
+            containerColor = Color.White.copy(alpha = 0.04f)
         ),
         shape = RoundedCornerShape(20.dp)
     ) {
@@ -185,14 +185,14 @@ fun ModeCard(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(accentColor.copy(alpha = 0.2f)),
+                    .background(accentColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (iconRes != null) {
                     Image(
                         painter = painterResource(id = iconRes),
                         contentDescription = null,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(36.dp)
                     )
                 } else if (icon != null) {
                     Icon(
@@ -210,24 +210,32 @@ fun ModeCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    color = accentColor,
-                    fontWeight = FontWeight.Bold
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
+                    color = Color.White.copy(alpha = 0.5f),
                     lineHeight = 18.sp
                 )
             }
 
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = accentColor,
-                modifier = Modifier.size(24.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(accentColor.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

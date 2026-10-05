@@ -56,6 +56,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -137,18 +138,19 @@ fun StudioContent(
     Column(
         modifier = modifier
             .background(Color.Black)
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
+        // Header mais compacto
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
+                IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back to menu",
+                        contentDescription = "Voltar ao menu",
                         tint = Color.White,
                         modifier = Modifier.size(20.dp)
                     )
@@ -165,7 +167,7 @@ fun StudioContent(
                             append(" Studio")
                         }
                     },
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleMedium
                 )
             }
             Surface(color = AppleGreen, shape = RoundedCornerShape(4.dp)) {
@@ -188,7 +190,7 @@ fun StudioContent(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(160.dp)
                 .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(12.dp)
@@ -236,12 +238,12 @@ fun StudioContent(
         Text("Scenes", color = Color.White, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
 
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(obsState.availableScenes) { scene ->
                 val isActive = scene.id == obsState.activeSceneId
                 Card(
                     modifier = Modifier
-                        .width(100.dp)
+                        .width(80.dp)
                         .height(70.dp)
                         .clickable { onSceneSelect(scene.id) }
                         .border(2.dp, if (isActive) AppleGreen else GlassBorder, RoundedCornerShape(12.dp)),
@@ -254,10 +256,16 @@ fun StudioContent(
                                 imageVector = if (isActive) Icons.Default.PlayArrow else Icons.Default.VideoLibrary,
                                 contentDescription = null,
                                 tint = if (isActive) AppleGreen else TextSecondary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = scene.name, style = MaterialTheme.typography.labelSmall, color = Color.White, maxLines = 1)
+                            Text(
+                                text = scene.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                maxLines = 1,
+                                fontSize = 10.sp
+                            )
                         }
                     }
                 }
