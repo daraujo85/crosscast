@@ -3,5 +3,11 @@ local
 drawable ic_launcher_foreground
 drawable icon_camera
 drawable logo_crosscast
+id widget_label
+id widget_root
+id widget_status
+layout widget_boot
 mipmap ic_launcher
 string app_name
+string widget_description
+xml widget_info

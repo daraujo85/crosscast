@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">CrossCast</string>
+    <string name="widget_description">CrossCast ADB Tunnel - tap to start</string>
 </resources>

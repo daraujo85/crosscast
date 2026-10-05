@@ -826,6 +826,9 @@ id view_tree_lifecycle_owner
 id view_tree_on_back_pressed_dispatcher_owner
 id view_tree_saved_state_registry_owner
 id view_tree_view_model_store_owner
+id widget_label
+id widget_root
+id widget_status
 id withText
 id wrap_content
 id wrapped_composition_tag
@@ -882,6 +885,7 @@ layout select_dialog_item_material
 layout select_dialog_multichoice_material
 layout select_dialog_singlechoice_material
 layout support_simple_spinner_dropdown_item
+layout widget_boot
 mipmap ic_launcher
 string abc_action_bar_home_description
 string abc_action_bar_up_description
@@ -996,6 +1000,7 @@ string tab
 string template_percent
 string tooltip_description
 string tooltip_label
+string widget_description
 style AlertDialog_AppCompat
 style AlertDialog_AppCompat_Light
 style Animation_AppCompat_Dialog
@@ -1392,3 +1397,4 @@ styleable Toolbar android_gravity android_minHeight buttonGravity collapseConten
 styleable View android_theme android_focusable paddingEnd paddingStart theme
 styleable ViewBackgroundHelper android_background backgroundTint backgroundTintMode
 styleable ViewStubCompat android_id android_layout android_inflatedId
+xml widget_info

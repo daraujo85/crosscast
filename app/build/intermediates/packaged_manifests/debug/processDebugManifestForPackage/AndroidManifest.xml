@@ -71,6 +71,20 @@
             android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
 
+        <!-- Boot Widget (tunnel indicator + executor) -->
+        <receiver
+            android:name="com.crosscast.BootWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_description" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
         <service
             android:name="androidx.camera.core.impl.MetadataHolderService"
             android:enabled="false"
