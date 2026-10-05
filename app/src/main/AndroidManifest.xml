@@ -13,7 +13,8 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@android:drawable/ic_menu_camera"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl= "true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
@@ -23,8 +24,9 @@
             android:exported="false"
             android:foregroundServiceType="camera" />
 
+        <!-- Splash Screen - Entry Point -->
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
             <intent-filter>
@@ -32,6 +34,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Mode Selection -->
+        <activity
+            android:name=".ModeSelectionActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
+        <!-- Main Camera Mode -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
+        <!-- Studio Mode -->
+        <activity
+            android:name=".StudioActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
 
 </manifest>

@@ -1,0 +1,26 @@
+# Gradle
+.gradle/
+build/
+local.properties
+*.iml
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Captures
+.captures/
+
+# SF / JEV
+.jev/
+*.apk
+*.aab
+
+# Generated
+**/generated/

@@ -13,27 +13,39 @@ import android.text.format.Formatter
 import android.util.Log
 import android.view.MotionEvent
 import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +56,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.campilot.camera.CameraControlRegistry
 import com.campilot.camera.CameraManager as CampilotCameraManager
+import com.campilot.ui.components.*
+import com.campilot.ui.theme.*
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.flow.collectLatest
@@ -53,7 +67,7 @@ import kotlinx.coroutines.launch
 data class QuickLens(val label: String, val cameraId: String, val zoom: Float, val focalLength: Float)
 data class CameraIdInfo(val id: String, val facing: String, val name: String, val focalLength: Float)
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
 
     private var isServiceRunning by mutableStateOf(false)
@@ -68,6 +82,39 @@ class MainActivity : ComponentActivity() {
 
     // Referência para o CameraManager para uso em toda a classe
     private lateinit var cameraManager: CampilotCameraManager
+
+    private var currentCameraId by mutableStateOf<String?>(null)
+    private var focusPoint by mutableStateOf<Offset?>(null)
+
+    private fun performZoom(newValue: Float) {
+        zoomSliderValue = newValue
+        val (targetId, targetZoom) = when {
+            newValue < 1.0f -> {
+                val id = backCameraIds[".6x"] ?: backCameraIds["1x"] ?: "0"
+                Pair(id, newValue / 0.6f)
+            }
+            newValue < 3.0f -> {
+                val id = backCameraIds["1x"] ?: "0"
+                Pair(id, newValue)
+            }
+            newValue < 5.0f -> {
+                val id = backCameraIds["3x"] ?: backCameraIds["1x"] ?: "0"
+                Pair(id, newValue / 3.0f)
+            }
+            else -> {
+                val id = backCameraIds["5x"] ?: backCameraIds["3x"] ?: backCameraIds["1x"] ?: "0"
+                val base = if (backCameraIds.containsKey("5x")) 5.0f else if (backCameraIds.containsKey("3x")) 3.0f else 1.0f
+                Pair(id, newValue / base)
+            }
+        }
+
+        if (targetId != currentCameraId) {
+            currentCameraId = targetId
+            cameraManager.switchCamera(targetId, targetZoom)
+        } else {
+            cameraManager.setZoom(targetZoom)
+        }
+    }
     
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -81,6 +128,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        hideSystemUI()
         cameraManager = CampilotCameraManager(this)
         
         cameraManager.onFrameCaptured = { jpeg -> StaticCameraBridge.onFrame?.invoke(jpeg) }
@@ -89,18 +137,6 @@ class MainActivity : ComponentActivity() {
             CameraControlRegistry.commands.collectLatest { command ->
                 val lens = quickLenses.find { it.cameraId == command.cameraId && it.zoom == command.zoom }
                 activeLabel = lens?.label ?: "Custom"
-                if (lens != null) {
-                    val baseZoom = when(lens.label) {
-                        ".6x" -> 0.6f
-                        "1x" -> 1.0f
-                        "2x" -> 2.0f
-                        "3x" -> 3.0f
-                        "5x" -> 5.0f
-                        "10x" -> 10.0f
-                        else -> command.zoom
-                    }
-                    zoomSliderValue = baseZoom
-                }
                 
                 // Processar comando de flash se presente
                 command.flash?.let {
@@ -108,7 +144,16 @@ class MainActivity : ComponentActivity() {
                     cameraManager.enableFlash(it)
                 }
 
-                cameraManager.switchCamera(command.cameraId, command.zoom)
+                // Calcular o valor real do zoom baseado no ID da câmera e zoomRatio do comando
+                val baseZoom = when {
+                    backCameraIds[".6x"] == command.cameraId -> 0.6f
+                    backCameraIds["1x"] == command.cameraId -> 1.0f
+                    backCameraIds["3x"] == command.cameraId -> 3.0f
+                    backCameraIds["5x"] == command.cameraId -> 5.0f
+                    else -> 1.0f
+                }
+                val totalZoom = baseZoom * command.zoom
+                performZoom(totalZoom)
             }
         }
         
@@ -121,232 +166,233 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            CampilotTheme {
+                BackHandler {
+                    finish()
+                }
+                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                var showQrSheet by remember { mutableStateOf(false) }
+                val serverUrl = if (ipAddress == "0.0.0.0") "SEM CONEXÃO" else "http://$ipAddress:8080"
+                val qrCodeBitmap = remember(ipAddress) { if (ipAddress != "0.0.0.0") generateQRCode(serverUrl) else null }
+
+                if (showQrSheet) {
+                    ConnectionSheet(
+                        url = serverUrl,
+                        qrCode = qrCodeBitmap,
+                        onDismiss = { showQrSheet = false },
+                        onCopy = { copyToClipboard(serverUrl) },
+                        sheetState = sheetState
+                    )
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF17131F),
-                                    Color(0xFF121212),
-                                    Color(0xFF0C0C0C)
-                                )
-                            )
-                        )
+                        .background(Color.Black)
+                        .then(if (showQrSheet) Modifier.blur(20.dp) else Modifier)
                 ) {
-                    Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
-                        val configuration = LocalConfiguration.current
-                        val previewAspectRatio = if (configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
-                            9f / 16f
-                        } else {
-                            16f / 9f
-                        }
+                    // 1. Viewfinder (Fundo)
+                    AndroidView(
+                        factory = { ctx ->
+                            PreviewView(ctx).apply {
+                                scaleType = PreviewView.ScaleType.FILL_CENTER
+                                val initialId = backCameraIds["1x"] ?: "0"
+                                currentCameraId = initialId
+                                cameraManager.startCameraWithPreview(
+                                    lifecycleOwner = this@MainActivity,
+                                    executor = ContextCompat.getMainExecutor(ctx),
+                                    previewView = this,
+                                    cameraId = initialId
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInteropFilter { event ->
+                                if (event.action == MotionEvent.ACTION_DOWN) {
+                                    focusPoint = Offset(event.x, event.y)
+                                    cameraManager.tapToFocus(event.x, event.y)
+                                }
+                                true
+                            }
+                    )
 
-                        Column(
-                            modifier = Modifier
-                                .padding(16.dp)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                    FocusIndicator(focusPoint) { focusPoint = null }
+
+                    GridOverlay()
+
+                    // 2. Barra Superior (Overlay)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(16.dp)
+                    ) {
+                        GlassPanel(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp)
                         ) {
-                            Text(
-                                text = "Campilot",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "Streaming local e troca de lente do S25 Ultra",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFFB0B0B0)
-                            )
-
-                            HeaderSection(ipAddress, isServiceRunning)
-
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF101010)),
-                                border = BorderStroke(1.dp, Color(0xFF313131)),
-                                shape = MaterialTheme.shapes.large
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(previewAspectRatio)
-                                ) {
-                                    AndroidView(
-                                        factory = { ctx ->
-                                            PreviewView(ctx).apply {
-                                                scaleType = PreviewView.ScaleType.FIT_CENTER
-                                                cameraManager.startCameraWithPreview(
-                                                    lifecycleOwner = this@MainActivity,
-                                                    executor = ContextCompat.getMainExecutor(ctx),
-                                                    previewView = this,
-                                                    cameraId = quickLenses.find { it.label == "1x" }?.cameraId ?: "0"
-                                                )
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .pointerInteropFilter { event ->
-                                                if (event.action == MotionEvent.ACTION_DOWN) {
-                                                    cameraManager.tapToFocus(event.x, event.y)
-                                                }
-                                                true
-                                            }
-                                    )
-
-                                    Surface(
-                                        color = Color.Black.copy(alpha = 0.50f),
-                                        shape = MaterialTheme.shapes.small,
-                                        modifier = Modifier
-                                            .align(Alignment.BottomStart)
-                                            .padding(12.dp)
-                                    ) {
-                                        Text(
-                                            text = "Toque para focar",
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = Color.White
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // Back button on the left
+                                    IconButton(onClick = { finish() }) {
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowBack,
+                                            contentDescription = "Back to menu",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
 
-                                    IconButton(
-                                        onClick = { isFlashOn = cameraManager.toggleFlash() },
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(12.dp)
-                                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    // Mostrar StatusPill apenas se NÃO estiver live para evitar redundância
+                                    if (!isServiceRunning) {
+                                        StatusPill(
+                                            status = if (ipAddress != "0.0.0.0") "Online" else "Offline",
+                                            isActive = ipAddress != "0.0.0.0",
+                                            color = if (ipAddress != "0.0.0.0") AppleGreen else TextTertiary
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                    }
+
+                                    Column(
+                                        modifier = Modifier.clickable {
+                                            if (ipAddress != "0.0.0.0") copyToClipboard(serverUrl)
+                                        }
                                     ) {
+                                        Text(
+                                            text = "Live Camera",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "${if (ipAddress != "0.0.0.0") "$ipAddress:8080" else ipAddress} · ${android.os.Build.MODEL}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = TextSecondary
+                                        )
+                                    }
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { isFlashOn = cameraManager.toggleFlash() }) {
                                         Icon(
                                             imageVector = if (isFlashOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
                                             contentDescription = "Flash",
-                                            tint = if (isFlashOn) Color.Yellow else Color.White
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    IconButton(onClick = { /* Settings */ }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Settings,
+                                            contentDescription = "Settings",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 }
                             }
+                        }
 
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF161616)),
-                                border = BorderStroke(1.dp, Color(0xFF2A2A2A)),
-                                shape = MaterialTheme.shapes.large
+                        // Indicador LIVE central (Pill)
+                        if (isServiceRunning) {
+                            Box(modifier = Modifier.align(Alignment.BottomCenter).offset(y = 40.dp)) {
+                                LivePill()
+                            }
+                        }
+                    }
+
+                    // 3. Controles Inferiores (Overlay)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(16.dp)
+                    ) {
+                        GlassPanel(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(32.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            "Zoom Preciso",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = Color.White
-                                        )
-                                        Text(
-                                            text = String.format("%.1fx", zoomSliderValue),
-                                            style = MaterialTheme.typography.titleLarge,
-                                            color = Color(0xFFFFEB3B),
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                // Zoom Selector
+                                ZoomSelector(
+                                    options = listOf("0.6x", "1x", "2x", "5x", "10x"),
+                                    selectedOption = activeLabel,
+                                    onOptionSelected = { label ->
+                                        activeLabel = label
+                                        val newValue = when(label) {
+                                            "0.6x" -> 0.6f
+                                            "1x" -> 1.0f
+                                            "2x" -> 2.0f
+                                            "5x" -> 5.0f
+                                            "10x" -> 10.0f
+                                            else -> zoomSliderValue
+                                        }
+                                        performZoom(newValue)
                                     }
-                                    
-                                    Slider(
-                                        value = zoomSliderValue,
-                                        onValueChange = { newValue ->
-                                            zoomSliderValue = newValue
-                                            // Lógica robusta para mapear o slider apenas para câmeras traseiras identificadas
-                                            val (targetId, targetZoom) = when {
-                                                newValue < 1.0f -> {
-                                                    val id = backCameraIds[".6x"] ?: backCameraIds["1x"] ?: "0"
-                                                    Pair(id, newValue / 0.6f)
-                                                }
-                                                newValue < 3.0f -> {
-                                                    val id = backCameraIds["1x"] ?: "0"
-                                                    Pair(id, newValue)
-                                                }
-                                                newValue < 5.0f -> {
-                                                    val id = backCameraIds["3x"] ?: backCameraIds["1x"] ?: "0"
-                                                    Pair(id, newValue / 3.0f)
-                                                }
-                                                else -> {
-                                                    val id = backCameraIds["5x"] ?: backCameraIds["3x"] ?: backCameraIds["1x"] ?: "0"
-                                                    Pair(id, newValue / 5.0f)
+                                )
+
+                                // Zoom Slider
+                                ZoomSlider(
+                                    value = zoomSliderValue,
+                                    onValueChange = { newValue ->
+                                        performZoom(newValue)
+                                        activeLabel = "Custom"
+                                    }
+                                )
+
+                                // Main Actions
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconActionButton(
+                                        icon = Icons.Default.QrCode,
+                                        label = "Switcher",
+                                        onClick = { showQrSheet = true }
+                                    )
+
+                                    RecordButton(
+                                        isRecording = isServiceRunning,
+                                        onClick = {
+                                            if (isServiceRunning) CameraService.stop(this@MainActivity)
+                                            else CameraService.start(this@MainActivity)
+                                            isServiceRunning = !isServiceRunning
+                                        }
+                                    )
+
+                                    IconActionButton(
+                                        icon = Icons.Default.FlipCameraIos,
+                                        label = "Camera",
+                                        onClick = {
+                                            if (activeLabel == "Selfie") {
+                                                // Voltar para a principal (1x)
+                                                activeLabel = "1x"
+                                                performZoom(1.0f)
+                                            } else {
+                                                // Ir para Selfie
+                                                val selfie = quickLenses.find { it.label == "Selfie" }
+                                                if (selfie != null) {
+                                                    activeLabel = "Selfie"
+                                                    currentCameraId = selfie.cameraId
+                                                    cameraManager.switchCamera(selfie.cameraId, 1.0f)
                                                 }
                                             }
-                                            cameraManager.switchCamera(targetId, targetZoom)
-                                            activeLabel = "Custom"
-                                        },
-                                        valueRange = 0.6f..10.0f,
-                                        steps = 94, // (10 - 0.6) / 0.1 = 94
-                                        colors = SliderDefaults.colors(
-                                            thumbColor = Color(0xFFFFEB3B),
-                                            activeTrackColor = Color(0xFFFFEB3B),
-                                            inactiveTrackColor = Color(0xFF353535)
-                                        )
-                                    )
-                                }
-                            }
-
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF161616)),
-                                border = BorderStroke(1.dp, Color(0xFF2A2A2A)),
-                                shape = MaterialTheme.shapes.large
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Text(
-                                        "Seletor de lente",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = Color.White
-                                    )
-
-                                    FlowRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        quickLenses.forEach { lens ->
-                                            FilterChip(
-                                                selected = activeLabel == lens.label,
-                                                onClick = {
-                                                    activeLabel = lens.label
-                                                    // Sincronizar slider com o botão clicado
-                                                    zoomSliderValue = when(lens.label) {
-                                                        ".6x" -> 0.6f
-                                                        "1x" -> 1.0f
-                                                        "2x" -> 2.0f
-                                                        "3x" -> 3.0f
-                                                        "5x" -> 5.0f
-                                                        "10x" -> 10.0f
-                                                        else -> zoomSliderValue
-                                                    }
-                                                    cameraManager.switchCamera(lens.cameraId, lens.zoom)
-                                                },
-                                                label = { 
-                                                    Text(
-                                                        text = lens.label,
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
-                                                    ) 
-                                                },
-                                                shape = MaterialTheme.shapes.medium,
-                                                modifier = Modifier.height(56.dp) // Botões mais altos para facilitar o toque
-                                            )
                                         }
-                                    }
+                                    )
                                 }
                             }
-
-                            ServerButton()
-                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
                 }
@@ -356,128 +402,6 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
         ipAddress = getLocalIpAddress()
         listCameras()
-    }
-
-    @Composable
-    fun HeaderSection(ip: String, isRunning: Boolean) {
-        val serverUrl = if (ip == "0.0.0.0") "SEM CONEXÃO WI-FI" else "http://$ip:8080"
-        val qrCodeBitmap = remember(ip) { if (ip != "0.0.0.0") generateQRCode("http://$ip:8080") else null }
-        var showQrDialog by remember { mutableStateOf(false) }
-
-        if (showQrDialog) {
-            AlertDialog(
-                onDismissRequest = { showQrDialog = false },
-                confirmButton = { 
-                    Button(onClick = { showQrDialog = false }) { Text("FECHAR") } 
-                },
-                title = { Text("QR Code de Conexão", color = Color.White) },
-                containerColor = Color.Black,
-                text = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                        qrCodeBitmap?.let {
-                            Surface(
-                                modifier = Modifier.size(220.dp),
-                                color = Color.White,
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Image(
-                                    bitmap = it.asImageBitmap(),
-                                    contentDescription = "QR Code",
-                                    modifier = Modifier.padding(12.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            )
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF161616)),
-            border = BorderStroke(1.dp, Color(0xFF353535)),
-            shape = MaterialTheme.shapes.large
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Endereço do servidor",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFFBDBDBD)
-                    )
-
-                    Surface(
-                        color = if (isRunning) Color(0xFF1F5E3B) else Color(0xFF4A3A10),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Text(
-                            text = if (isRunning) "ATIVO" else "PARADO",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White
-                        )
-                    }
-                }
-
-                Text(
-                    text = serverUrl,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = if (ip == "0.0.0.0") Color(0xFFFF6B6B) else Color(0xFFFFEB3B),
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable { copyToClipboard(serverUrl) }
-                )
-
-                Text(
-                    text = "Toque no endereço para copiar.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF9A9A9A)
-                )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = { shareAddress(serverUrl) },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFEDEDED),
-                            contentColor = Color.Black
-                        ),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-
-                    Button(
-                        onClick = { showQrDialog = true },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFEDEDED),
-                            contentColor = Color.Black
-                        ),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Icon(Icons.Default.QrCode, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-                    
-                    IconButton(
-                        onClick = { ipAddress = getLocalIpAddress() },
-                        modifier = Modifier.size(48.dp).background(Color(0xFF2A2A2A), CircleShape)
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
-                    }
-                }
-            }
-        }
     }
 
     private fun shareAddress(url: String) {
@@ -506,49 +430,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun shareToWhatsApp(url: String) {
-        // Mantido apenas por compatibilidade se necessário, mas shareAddress é preferível
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "Controle a câmera do Campilot por aqui: $url")
-            setPackage("com.whatsapp")
-        }
-        try {
-            startActivity(intent)
-        } catch (e: Exception) {
-            shareAddress(url)
-        }
-    }
-
-    @Composable
-    fun ControlToggle(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, isActive: Boolean, onClick: () -> Unit) {
-        // Não mais utilizado mas mantido para evitar erros de compilação se houver referências perdidas
-    }
-
-    @Composable
-    fun ServerButton() {
-        Button(
-            onClick = { 
-                if (isServiceRunning) CameraService.stop(this@MainActivity) 
-                else CameraService.start(this@MainActivity)
-                isServiceRunning = !isServiceRunning
-            },
-            modifier = Modifier.fillMaxWidth().height(60.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isServiceRunning) Color(0xFFB3261E) else Color(0xFF9E7CFF),
-                contentColor = Color.White
-            ),
-            shape = MaterialTheme.shapes.large
-        ) { 
-            Icon(
-                imageVector = if (isServiceRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
-                contentDescription = null
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(if (isServiceRunning) "Parar transmissão" else "Iniciar servidor")
-        }
-    }
-
     private fun copyToClipboard(text: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("URL", text))
@@ -562,6 +443,37 @@ class MainActivity : ComponentActivity() {
     private fun checkPermissions() {
         val permissions = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
         requestPermissionLauncher.launch(permissions)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemUI()
+        }
+    }
+
+    private fun hideSystemUI() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).let { controller ->
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    @Composable
+    fun GridOverlay() {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = 0.5.dp.toPx()
+            val color = Color.White.copy(alpha = 0.15f)
+            
+            // Linhas Horizontais
+            drawLine(color, Offset(0f, size.height / 3f), Offset(size.width, size.height / 3f), strokeWidth)
+            drawLine(color, Offset(0f, 2 * size.height / 3f), Offset(size.width, 2 * size.height / 3f), strokeWidth)
+            
+            // Linhas Verticais
+            drawLine(color, Offset(size.width / 3f, 0f), Offset(size.width / 3f, size.height), strokeWidth)
+            drawLine(color, Offset(2 * size.width / 3f, 0f), Offset(2 * size.width / 3f, size.height), strokeWidth)
+        }
     }
 
     private fun listCameras() {
@@ -578,22 +490,22 @@ class MainActivity : ComponentActivity() {
 
                 if (facing == CameraCharacteristics.LENS_FACING_BACK) {
                     val label = when {
-                        focal < 3.0f -> ".6x"
-                        focal < 10.0f -> "1x"
-                        focal < 20.0f -> "3x"
-                        else -> "5x"
+                        focal < 4.0f -> ".6x" // Ultra-wide (ex: 2.2mm)
+                        focal < 7.5f -> "1x" // Main (ex: 6.3mm)
+                        focal < 15.0f -> "3x" // Telephoto (ex: 7.9mm)
+                        else -> "5x" // Periscope Telephoto (ex: 18.6mm)
                     }
                     
                     // Armazenar ID mapeado para o slider
                     backCameraIds[label] = cameraId
                     
                     foundLenses.add(QuickLens(label, cameraId, 1.0f, focal))
+                    
                     if (label == "1x") foundLenses.add(QuickLens("2x", cameraId, 2.0f, focal + 0.1f))
-                    if (label == "3x") {
-                        // O S25 Ultra tem 3x e 5x ópticos. Vamos garantir que ambos apareçam.
-                    }
+                    
                     if (label == "5x") {
-                        foundLenses.add(QuickLens("10x", cameraId, 2.0f, focal + 0.1f))
+                        foundLenses.add(QuickLens("8x", cameraId, 1.6f, focal + 0.1f)) // 8x digital from 5x optical (5 * 1.6 = 8)
+                        foundLenses.add(QuickLens("10x", cameraId, 2.0f, focal + 0.2f)) // 10x digital from 5x optical (5 * 2 = 10)
                     }
                 } else if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
                     if (foundLenses.none { it.label == "Selfie" }) foundLenses.add(QuickLens("Selfie", cameraId, 1.0f, 999f))

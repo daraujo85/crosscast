@@ -1,8 +1,17 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystoreFile = project.rootProject.file("local.properties")
+val properties = Properties()
+if (keystoreFile.exists()) {
+    properties.load(FileInputStream(keystoreFile))
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    kotlin("kapt")
+    // id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -17,9 +26,26 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = properties.getProperty("KEY_ALIAS")
+            keyPassword = properties.getProperty("KEY_PASSWORD")
+            storeFile = if (properties.getProperty("KEYSTORE_FILE") != null) file(properties.getProperty("KEYSTORE_FILE")) else null
+            storePassword = properties.getProperty("STORE_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            if (properties.getProperty("KEYSTORE_FILE") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
@@ -65,11 +91,11 @@ dependencies {
     implementation(libs.ktor.negotiation)
     implementation(libs.ktor.json)
 
-    // Room
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    kapt(libs.room.compiler)
-
     // QR Code
     implementation(libs.zxing)
+
+    // Room (persistência de cenas/fontes do Modo Estúdio) - desabilitado temporariamente
+    // implementation(libs.room.runtime)
+    // implementation(libs.room.ktx)
+    // kapt(libs.room.compiler)
 }
