@@ -435,21 +435,26 @@ fun HolyricsOnlyScene(holyricsUrl: String) {
                             settings.useWideViewPort = true
                             settings.cacheMode = WebSettings.LOAD_NO_CACHE
                             webViewClient = object : WebViewClient() {
+                                private var loadStartTime = System.currentTimeMillis()
                                 override fun onReceivedError(
                                     view: WebView?,
                                     errorCode: Int,
                                     description: String?,
                                     failingUrl: String?
                                 ) {
-                                    holyricsOk = false
+                                    // Only mark as failed if it's the main URL and at least 3 seconds have passed
+                                    if (failingUrl == holyricsUrl && System.currentTimeMillis() - loadStartTime >= 3000) {
+                                        holyricsOk = false
+                                    }
                                 }
                                 override fun onReceivedHttpError(
                                     view: WebView?,
                                     request: android.webkit.WebResourceRequest?,
                                     errorResponse: android.webkit.WebResourceResponse?
                                 ) {
-                                    if (request?.url?.toString()?.contains(".jpg") == true ||
-                                        errorResponse?.statusCode == 404) {
+                                    val url = request?.url?.toString()
+                                    // Only mark as failed if it's the main URL (not sub-resources like .jpg)
+                                    if (url == holyricsUrl && errorResponse?.statusCode == 404 && System.currentTimeMillis() - loadStartTime >= 3000) {
                                         holyricsOk = false
                                     }
                                 }
@@ -563,21 +568,26 @@ fun SplitScene(
                                 settings.useWideViewPort = true
                                 settings.cacheMode = WebSettings.LOAD_NO_CACHE
                                 webViewClient = object : WebViewClient() {
+                                    private var loadStartTime = System.currentTimeMillis()
                                     override fun onReceivedError(
                                         view: WebView?,
                                         errorCode: Int,
                                         description: String?,
                                         failingUrl: String?
                                     ) {
-                                        holyricsOk = false
+                                        // Only mark as failed if it's the main URL and at least 3 seconds have passed
+                                        if (failingUrl == holyricsUrl && System.currentTimeMillis() - loadStartTime >= 3000) {
+                                            holyricsOk = false
+                                        }
                                     }
                                     override fun onReceivedHttpError(
                                         view: WebView?,
                                         request: android.webkit.WebResourceRequest?,
                                         errorResponse: android.webkit.WebResourceResponse?
                                     ) {
-                                        if (request?.url?.toString()?.contains(".jpg") == true ||
-                                            errorResponse?.statusCode == 404) {
+                                        val url = request?.url?.toString()
+                                        // Only mark as failed if it's the main URL (not sub-resources like .jpg)
+                                        if (url == holyricsUrl && errorResponse?.statusCode == 404 && System.currentTimeMillis() - loadStartTime >= 3000) {
                                             holyricsOk = false
                                         }
                                     }
