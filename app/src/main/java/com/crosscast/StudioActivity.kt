@@ -55,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
@@ -108,18 +109,43 @@ class StudioActivity : ComponentActivity() {
         autoSwitchManager = AutoSwitchManager(this, lifecycleScope)
         cameraManager = com.crosscast.camera.CameraManager(this)
         rtmpStreamer = RtmpStreamer(this)
+
+        // Wire camera frames to RTMP streamer
+        cameraManager.onFrameCaptured = { jpegData ->
+            rtmpStreamer.encodeFrame(jpegData, isKeyframe = false)
+        }
+
         autoSwitchManager.startHolyricsDetection()
         requestPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+
+        // Track current camera ID
+        var currentCameraId = "0"
+
         setContent {
             BackHandler { finish() }
             val obsState by autoSwitchManager.autoSwitchState.collectAsState()
             val streamState by rtmpStreamer.streamState.collectAsState()
             val streamAddress by rtmpStreamer.streamAddress.collectAsState()
+
+            // Get camera ID from active scene
+            val activeCameraId = obsState.activeScene?.cameraId ?: "0"
+
+            // Switch camera when scene changes
+            LaunchedEffect(activeCameraId) {
+                if (activeCameraId != currentCameraId) {
+                    currentCameraId = activeCameraId
+                    cameraManager.switchCamera(activeCameraId)
+                }
+            }
+
             StudioContent(
                 obsState = obsState,
                 cameraManager = cameraManager,
                 onBack = { finish() },
-                onSceneSelect = { autoSwitchManager.activateScene(it) },
+                onSceneSelect = { sceneId ->
+                    autoSwitchManager.activateScene(sceneId)
+                    // Camera will be switched via LaunchedEffect above
+                },
                 onTake = { autoSwitchManager.nextScene() },
                 onToggleAutoSwitch = { autoSwitchManager.toggleAutoSwitch() },
                 onToggleDetection = { if (obsState.detectionActive) autoSwitchManager.stopHolyricsDetection() else autoSwitchManager.startHolyricsDetection() },
