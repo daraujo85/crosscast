@@ -150,7 +150,7 @@ fun StudioContent(
             .background(Color.Black)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        // Header mais compacto
+        // Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -194,85 +194,87 @@ fun StudioContent(
 
         Spacer(modifier = Modifier.height(4.dp))
         Text(text = "Current: ${obsState.activeSceneId}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Cena split: camera em cima + Holyrics embaixo
-        if (obsState.activeSceneId == "camera_pip_holyrics") {
-            SplitScene(
-                cameraManager = cameraManager,
-                lifecycleOwner = lifecycleOwner,
-                holyricsUrl = "http://192.168.31.231/view/widescreen"
-            )
-        } else {
-            // PROGRAM 9:16 centralizado, menor que a tela toda
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(360.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
+        // Cenas com tratamento especial
+        when (obsState.activeSceneId) {
+            "camera_pip_holyrics" -> {
+                SplitScene(
+                    cameraManager = cameraManager,
+                    lifecycleOwner = lifecycleOwner,
+                    holyricsUrl = "http://192.168.31.231/view/widescreen"
+                )
+            }
+            "holyrics_only" -> {
+                HolyricsOnlyScene(
+                    holyricsUrl = "http://192.168.31.231/view/widescreen"
+                )
+            }
+            else -> {
+                Box(
                     modifier = Modifier
-                        .aspectRatio(9f / 16f)
-                        .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
-                    shape = RoundedCornerShape(12.dp)
+                        .fillMaxWidth()
+                        .height(360.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        AndroidView(
-                            factory = { ctx ->
-                                PreviewView(ctx).apply {
-                                    scaleType = PreviewView.ScaleType.FILL_CENTER
-                                    cameraManager?.startCameraWithPreview(
-                                        lifecycleOwner = lifecycleOwner,
-                                        executor = ContextCompat.getMainExecutor(ctx),
-                                        previewView = this,
-                                        cameraId = "0"
+                    Card(
+                        modifier = Modifier
+                            .aspectRatio(9f / 16f)
+                            .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AndroidView(
+                                factory = { ctx ->
+                                    PreviewView(ctx).apply {
+                                        scaleType = PreviewView.ScaleType.FILL_CENTER
+                                        cameraManager?.startCameraWithPreview(
+                                            lifecycleOwner = lifecycleOwner,
+                                            executor = ContextCompat.getMainExecutor(ctx),
+                                            previewView = this,
+                                            cameraId = "0"
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            if (cameraManager == null) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color(0xFF0A0A0A)),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Videocam,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.2f),
+                                        modifier = Modifier.size(36.dp)
                                     )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("Aguardando câmera...", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
                                 }
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        if (cameraManager == null) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color(0xFF0A0A0A)),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Videocam,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.2f),
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    "Aguardando câmera...",
-                                    color = Color.White.copy(alpha = 0.3f),
-                                    style = MaterialTheme.typography.labelSmall
-                                )
                             }
-                        }
-                        Surface(
-                            color = Color.Red.copy(alpha = 0.9f),
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(6.dp),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text("PROGRAM", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                        }
-                        Surface(
-                            color = Color.Black.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(4.dp),
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(6.dp)
-                        ) {
-                            Text(text = obsState.activeScene?.name ?: "No scene", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
+                            Surface(
+                                color = Color.Red.copy(alpha = 0.9f),
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(6.dp),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text("PROGRAM", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                            }
+                            Surface(
+                                color = Color.Black.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(4.dp),
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(6.dp)
+                            ) {
+                                Text(text = obsState.activeScene?.name ?: "No scene", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
                 }
@@ -410,6 +412,92 @@ fun StudioContent(
     }
 }
 
+@Composable
+fun HolyricsOnlyScene(holyricsUrl: String) {
+    var holyricsOk by remember { mutableStateOf(true) }
+
+    if (holyricsOk) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(9f / 16f)
+                .border(3.dp, PurpleOBS.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color.Black),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.loadWithOverviewMode = true
+                            settings.useWideViewPort = true
+                            settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                            webViewClient = object : WebViewClient() {
+                                override fun onReceivedError(
+                                    view: WebView?,
+                                    errorCode: Int,
+                                    description: String?,
+                                    failingUrl: String?
+                                ) {
+                                    holyricsOk = false
+                                }
+                                override fun onReceivedHttpError(
+                                    view: WebView?,
+                                    request: android.webkit.WebResourceRequest?,
+                                    errorResponse: android.webkit.WebResourceResponse?
+                                ) {
+                                    if (request?.url?.toString()?.contains(".jpg") == true ||
+                                        errorResponse?.statusCode == 404) {
+                                        holyricsOk = false
+                                    }
+                                }
+                            }
+                            loadUrl(holyricsUrl)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                Surface(
+                    color = PurpleOBS.copy(alpha = 0.8f),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text("HOLYRICS", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    } else {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(9f / 16f)
+                .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.3f),
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Holyrics offline",
+                        color = Color.White.copy(alpha = 0.4f),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun SplitScene(
