@@ -65,6 +65,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
         </receiver>
+
+        <!-- Boot Receiver (runs tunnel script) -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.crosscast.START_TUNNEL" />
+                <action android:name="com.crosscast.REFRESH_WIDGET" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

@@ -85,6 +85,16 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- Boot Receiver (runs tunnel script) -->
+        <receiver
+            android:name="com.crosscast.BootReceiver"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="com.crosscast.START_TUNNEL" />
+                <action android:name="com.crosscast.REFRESH_WIDGET" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name="androidx.camera.core.impl.MetadataHolderService"
             android:enabled="false"

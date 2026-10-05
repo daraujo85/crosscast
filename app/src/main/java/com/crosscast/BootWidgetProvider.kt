@@ -8,7 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.widget.RemoteViews
-import java.io.File
+import android.widget.Toast
 
 class BootWidgetProvider : AppWidgetProvider() {
 
@@ -23,29 +23,53 @@ class BootWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (intent.action == "com.crosscast.WIDGET_TAP") {
+            // Feedback visual imediato
+            Toast.makeText(context, "Iniciando tunnel...", Toast.LENGTH_SHORT).show()
+
+            // Dispara o boot receiver para iniciar tunnel
+            val bootIntent = Intent(context, BootReceiver::class.java).apply {
+                action = "com.crosscast.START_TUNNEL"
+            }
+            context.sendBroadcast(bootIntent)
+
+            // Atualiza o widget após 3 segundos (tempo do cloudflared subir)
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            handler.postDelayed({
+                val mgr = AppWidgetManager.getInstance(context)
+                val ids = mgr.getAppWidgetIds(ComponentName(context, BootWidgetProvider::class.java))
+                for (id in ids) {
+                    val views = buildRemoteViews(context, isTunnelRunning(context))
+                    mgr.updateAppWidget(id, views)
+                }
+                val result = isTunnelRunning(context)
+                val msg = if (result) "Tunnel ON" else "Falhou - abra Termux"
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }, 3000)
+        }
+    }
+
     private fun buildRemoteViews(context: Context, tunnelRunning: Boolean): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_boot)
 
-        // Cor e label baseadas no status
+        // Cor e label baseadas no status - troca o drawable do background
         if (tunnelRunning) {
-            views.setInt(R.id.widget_root, "setBackgroundColor", Color.parseColor("#22E27D"))
-            views.setTextViewText(R.id.widget_status, "TUNNEL ON")
-            views.setTextColor(R.id.widget_status, Color.BLACK)
+            views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_circle_green)
+            views.setTextViewText(R.id.widget_label, "ON")
+            views.setTextColor(R.id.widget_label, Color.BLACK)
         } else {
-            views.setInt(R.id.widget_root, "setBackgroundColor", Color.parseColor("#FF4545"))
-            views.setTextViewText(R.id.widget_status, "TUNNEL OFF")
-            views.setTextColor(R.id.widget_status, Color.WHITE)
+            views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_circle_red)
+            views.setTextViewText(R.id.widget_label, "OFF")
+            views.setTextColor(R.id.widget_label, Color.WHITE)
         }
 
-        // Click: abrir Termux com o script
-        val clickIntent = Intent().apply {
-            setClassName("com.termux", "com.termux.app.RunScriptActivity")
-            putExtra("com.termux.RUN_SCRIPT_PATH", "/sdcard/termux-tunnel.sh")
+        // Click - broadcast interno
+        val clickIntent = Intent(context, BootWidgetProvider::class.java).apply {
+            action = "com.crosscast.WIDGET_TAP"
         }
-        val fallbackIntent = Intent().apply {
-            setClassName("com.termux", "com.termux.app.TermuxActivity")
-        }
-        val pending = PendingIntent.getActivity(
+        val pending = PendingIntent.getBroadcast(
             context, 0, clickIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -56,13 +80,13 @@ class BootWidgetProvider : AppWidgetProvider() {
 
     private fun isTunnelRunning(context: Context): Boolean {
         return try {
-            val proc = Runtime.getRuntime().exec("pidof cloudflared")
-            proc.waitFor()
+            val proc = ProcessBuilder("pidof", "cloudflared")
+                .redirectErrorStream(true)
+                .start()
+            proc.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)
             proc.exitValue() == 0
         } catch (e: Exception) {
-            // Fallback: verifica o arquivo de log mais recente
-            val logFile = File("/data/data/com.termux/files/usr/var/log/sv/cloudflared/current")
-            logFile.exists()
+            false
         }
     }
 }

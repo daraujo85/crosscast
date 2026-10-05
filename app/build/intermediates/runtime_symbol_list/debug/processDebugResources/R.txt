@@ -635,6 +635,8 @@ int drawable notification_tile_bg 0x7f060072
 int drawable notify_panel_notification_icon_bg 0x7f060073
 int drawable tooltip_frame_dark 0x7f060074
 int drawable tooltip_frame_light 0x7f060075
+int drawable widget_circle_green 0x7f060076
+int drawable widget_circle_red 0x7f060077
 int id ALT 0x7f070000
 int id CTRL 0x7f070001
 int id FUNCTION 0x7f070002
@@ -827,10 +829,9 @@ int id view_tree_saved_state_registry_owner 0x7f0700bc
 int id view_tree_view_model_store_owner 0x7f0700bd
 int id widget_label 0x7f0700be
 int id widget_root 0x7f0700bf
-int id widget_status 0x7f0700c0
-int id withText 0x7f0700c1
-int id wrap_content 0x7f0700c2
-int id wrapped_composition_tag 0x7f0700c3
+int id withText 0x7f0700c0
+int id wrap_content 0x7f0700c1
+int id wrapped_composition_tag 0x7f0700c2
 int integer abc_config_activityDefaultDur 0x7f080000
 int integer abc_config_activityShortDur 0x7f080001
 int integer cancel_button_image_alpha 0x7f080002
