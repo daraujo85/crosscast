@@ -209,7 +209,7 @@ fun StudioContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp),
+                    .height(360.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Card(
@@ -423,7 +423,7 @@ fun SplitScene(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .aspectRatio(9f / 16f)
                 .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(12.dp)
@@ -516,7 +516,7 @@ fun SplitScene(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .aspectRatio(9f / 16f)
                 .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(12.dp)
