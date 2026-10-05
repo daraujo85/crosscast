@@ -141,6 +141,7 @@ class StudioActivity : ComponentActivity() {
             StudioContent(
                 obsState = obsState,
                 cameraManager = cameraManager,
+                activeCameraId = activeCameraId,
                 onBack = { finish() },
                 onSceneSelect = { sceneId ->
                     autoSwitchManager.activateScene(sceneId)
@@ -176,6 +177,7 @@ class StudioActivity : ComponentActivity() {
 fun StudioContent(
     obsState: AutoSwitchState,
     cameraManager: com.crosscast.camera.CameraManager? = null,
+    activeCameraId: String = "0",
     onBack: () -> Unit = {},
     onSceneSelect: (String) -> Unit,
     onTake: () -> Unit,
@@ -245,7 +247,8 @@ fun StudioContent(
                 SplitScene(
                     cameraManager = cameraManager,
                     lifecycleOwner = lifecycleOwner,
-                    holyricsUrl = "http://192.168.31.231/view/widescreen"
+                    holyricsUrl = "http://192.168.31.231/view/widescreen",
+                    activeCameraId = activeCameraId
                 )
             }
             "holyrics_only" -> {
@@ -276,7 +279,7 @@ fun StudioContent(
                                             lifecycleOwner = lifecycleOwner,
                                             executor = ContextCompat.getMainExecutor(ctx),
                                             previewView = this,
-                                            cameraId = "0"
+                                            cameraId = activeCameraId
                                         )
                                     }
                                 },
@@ -568,7 +571,8 @@ fun HolyricsOnlyScene(holyricsUrl: String) {
 fun SplitScene(
     cameraManager: com.crosscast.camera.CameraManager?,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
-    holyricsUrl: String
+    holyricsUrl: String,
+    activeCameraId: String = "0"
 ) {
     var holyricsOk by remember { mutableStateOf(true) }
 
@@ -596,7 +600,7 @@ fun SplitScene(
                                     lifecycleOwner = lifecycleOwner,
                                     executor = ContextCompat.getMainExecutor(ctx),
                                     previewView = this,
-                                    cameraId = "0"
+                                    cameraId = activeCameraId
                                 )
                             }
                         },

@@ -9,8 +9,13 @@ import android.os.Looper
 import android.util.Log
 import android.view.Surface
 import androidx.camera.core.ImageProxy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -50,9 +55,10 @@ class RtmpStreamer(private val context: Context) {
     private val isStreaming = AtomicBoolean(false)
     private var encoder: MediaCodec? = null
     private var rtmpClient: RtmpClient? = null
-    
+
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var encoderThread: Thread? = null
+    private val streamerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var encoderJob: kotlinx.coroutines.Job? = null
     private var inputSurface: Surface? = null
     
     // SPS/PPS for H.264
@@ -110,19 +116,25 @@ class RtmpStreamer(private val context: Context) {
             }
         }
 
-        encoderThread = Thread {
+        // Start encoder processing on background coroutine
+        encoderJob = streamerScope.launch {
             processEncoderOutput()
-        }.apply { start() }
+        }
 
         rtmpClient = RtmpClient()
-        if (rtmpClient?.connect(address) == true) {
-            rtmpClient?.publish("")
-            _streamState.value = StreamState.LIVE
-            Log.d(TAG, "Stream started: $address")
-        } else {
-            _streamState.value = StreamState.ERROR
-            isStreaming.set(false)
-        }
+        rtmpClient?.connect(
+            url = address,
+            onSuccess = {
+                rtmpClient?.publish("")
+                _streamState.value = StreamState.LIVE
+                Log.d(TAG, "Stream started: $address")
+            },
+            onFailure = { e ->
+                Log.e(TAG, "Connection failed", e)
+                _streamState.value = StreamState.ERROR
+                isStreaming.set(false)
+            }
+        )
     }
 
     /**
@@ -133,9 +145,9 @@ class RtmpStreamer(private val context: Context) {
             return
         }
 
-        encoderThread?.interrupt()
-        encoderThread = null
-        
+        encoderJob?.cancel()
+        encoderJob = null
+
         try {
             encoder?.stop()
             encoder?.release()
@@ -144,13 +156,13 @@ class RtmpStreamer(private val context: Context) {
         }
         encoder = null
         inputSurface = null
-        
+
         rtmpClient?.disconnect()
         rtmpClient = null
-        
+
         firstFrameSent = false
         spsPpsData = null
-        
+
         mainHandler.post {
             _streamState.value = StreamState.OFFLINE
         }

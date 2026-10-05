@@ -1,8 +1,15 @@
 package com.crosscast
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.net.Socket
 
@@ -31,51 +38,77 @@ class RtmpClient {
 
     private var socket: Socket? = null
     private var outputStream: java.io.OutputStream? = null
-    
+
+    private val clientScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private var transactionId = 1
     private var streamId = 0
     private val serverAddress = MutableStateFlow("")
     private var appName = ""
 
-    fun connect(url: String): Boolean {
-        if (_state.value != State.DISCONNECTED) return false
+    private var onConnectSuccess: (() -> Unit)? = null
+    private var onConnectFailure: ((Exception) -> Unit)? = null
 
-        try {
-            serverAddress.value = url
-            val parsed = parseRtmpUrl(url)
-            
-            _state.value = State.HANDSHAKING
-            
-            socket = Socket(parsed.host, parsed.port)
-            socket?.soTimeout = 10000
-            outputStream = socket?.getOutputStream()
-            
-            appName = parsed.app
-            
-            val c0c1 = createHandshakeC0C1()
-            outputStream?.write(c0c1)
-            outputStream?.flush()
-            
-            val s0s1s2 = ByteArray(HANDSHAKE_SIZE * 2 + 1)
-            val bytesRead = socket?.getInputStream()?.read(s0s1s2) ?: -1
-            if (bytesRead < HANDSHAKE_SIZE * 2 + 1) {
-                _state.value = State.ERROR
-                return false
+    fun connect(url: String, onSuccess: () -> Unit = {}, onFailure: (Exception) -> Unit = {}) {
+        if (_state.value != State.DISCONNECTED) {
+            onFailure(IllegalStateException("Already connected or connecting"))
+            return
+        }
+
+        onConnectSuccess = onSuccess
+        onConnectFailure = onFailure
+
+        clientScope.launch {
+            try {
+                withContext(Dispatchers.Main) {
+                    serverAddress.value = url
+                    _state.value = State.HANDSHAKING
+                }
+
+                val parsed = parseRtmpUrl(url)
+                appName = parsed.app
+
+                socket = Socket(parsed.host, parsed.port)
+                socket?.soTimeout = 10000
+                outputStream = socket?.getOutputStream()
+
+                val c0c1 = createHandshakeC0C1()
+                outputStream?.write(c0c1)
+                outputStream?.flush()
+
+                val s0s1s2 = ByteArray(HANDSHAKE_SIZE * 2 + 1)
+                val bytesRead = socket?.getInputStream()?.read(s0s1s2) ?: -1
+                if (bytesRead < HANDSHAKE_SIZE * 2 + 1) {
+                    withContext(Dispatchers.Main) {
+                        _state.value = State.ERROR
+                    }
+                    withContext(Dispatchers.Main) {
+                        onConnectFailure?.invoke(IllegalStateException("Handshake failed"))
+                    }
+                    return@launch
+                }
+
+                outputStream?.write(s0s1s2, 1, HANDSHAKE_SIZE)
+                outputStream?.flush()
+
+                withContext(Dispatchers.Main) {
+                    _state.value = State.CONNECTING
+                }
+                sendConnect(appName)
+
+                Log.d(TAG, "Connected to $url")
+                withContext(Dispatchers.Main) {
+                    onConnectSuccess?.invoke()
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Connection failed", e)
+                withContext(Dispatchers.Main) {
+                    _state.value = State.ERROR
+                    onConnectFailure?.invoke(e)
+                }
             }
-            
-            outputStream?.write(s0s1s2, 1, HANDSHAKE_SIZE)
-            outputStream?.flush()
-            
-            _state.value = State.CONNECTING
-            sendConnect(appName)
-            
-            Log.d(TAG, "Connected to $url")
-            return true
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Connection failed", e)
-            _state.value = State.ERROR
-            return false
         }
     }
 
