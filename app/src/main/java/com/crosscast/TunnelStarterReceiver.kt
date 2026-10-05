@@ -3,10 +3,9 @@ package com.crosscast
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.util.Log
 
-class BootReceiver : BroadcastReceiver() {
+class TunnelStarterReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -16,13 +15,14 @@ class BootReceiver : BroadcastReceiver() {
     }
 
     private fun startTunnel() {
-        // Tenta varias formas de iniciar o tunnel
         val attempts = listOf(
             // 1) Termux:API RunScriptActivity
             arrayOf("am", "start", "-n", "com.termux/com.termux.app.RunScriptActivity",
                 "-e", "com.termux.RUN_SCRIPT_PATH", "/sdcard/termux-tunnel.sh"),
             // 2) Fallback - abrir Termux normal
-            arrayOf("am", "start", "-n", "com.termux/com.termux.app.TermuxActivity")
+            arrayOf("am", "start", "-n", "com.termux/com.termux.app.TermuxActivity"),
+            // 3) Fallback - sh direto (pode falhar em Android 11+)
+            arrayOf("sh", "-c", "am start -n com.termux/com.termux.app.TermuxActivity")
         )
 
         for (cmd in attempts) {
@@ -30,13 +30,10 @@ class BootReceiver : BroadcastReceiver() {
                 val proc = ProcessBuilder(*cmd)
                     .redirectErrorStream(true)
                     .start()
-                proc.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)
-                if (proc.exitValue() == 0) {
-                    Log.i("BootReceiver", "Tunnel start command sent: ${cmd.joinToString(" ")}")
-                    return
-                }
+                proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
+                Log.i("TunnelStarter", "Tried: ${cmd.joinToString(" ")} -> exit=${proc.exitValue()}")
             } catch (e: Exception) {
-                Log.w("BootReceiver", "Failed: ${cmd.joinToString(" ")}: ${e.message}")
+                Log.w("TunnelStarter", "Failed: ${cmd.joinToString(" ")}: ${e.message}")
             }
         }
     }

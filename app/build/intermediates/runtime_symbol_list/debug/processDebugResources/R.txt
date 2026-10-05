@@ -827,11 +827,12 @@ int id view_tree_lifecycle_owner 0x7f0700ba
 int id view_tree_on_back_pressed_dispatcher_owner 0x7f0700bb
 int id view_tree_saved_state_registry_owner 0x7f0700bc
 int id view_tree_view_model_store_owner 0x7f0700bd
-int id widget_label 0x7f0700be
-int id widget_root 0x7f0700bf
-int id withText 0x7f0700c0
-int id wrap_content 0x7f0700c1
-int id wrapped_composition_tag 0x7f0700c2
+int id widget_circle 0x7f0700be
+int id widget_label 0x7f0700bf
+int id widget_root 0x7f0700c0
+int id withText 0x7f0700c1
+int id wrap_content 0x7f0700c2
+int id wrapped_composition_tag 0x7f0700c3
 int integer abc_config_activityDefaultDur 0x7f080000
 int integer abc_config_activityShortDur 0x7f080001
 int integer cancel_button_image_alpha 0x7f080002

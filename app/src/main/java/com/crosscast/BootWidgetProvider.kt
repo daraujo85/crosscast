@@ -30,7 +30,7 @@ class BootWidgetProvider : AppWidgetProvider() {
             Toast.makeText(context, "Iniciando tunnel...", Toast.LENGTH_SHORT).show()
 
             // Dispara o boot receiver para iniciar tunnel
-            val bootIntent = Intent(context, BootReceiver::class.java).apply {
+            val bootIntent = Intent(context, TunnelStarterReceiver::class.java).apply {
                 action = "com.crosscast.START_TUNNEL"
             }
             context.sendBroadcast(bootIntent)
@@ -54,13 +54,13 @@ class BootWidgetProvider : AppWidgetProvider() {
     private fun buildRemoteViews(context: Context, tunnelRunning: Boolean): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_boot)
 
-        // Cor e label baseadas no status - troca o drawable do background
+        // Cor e label baseadas no status - troca o drawable do background do View
         if (tunnelRunning) {
-            views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_circle_green)
+            views.setInt(R.id.widget_circle, "setBackgroundResource", R.drawable.widget_circle_green)
             views.setTextViewText(R.id.widget_label, "ON")
             views.setTextColor(R.id.widget_label, Color.BLACK)
         } else {
-            views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_circle_red)
+            views.setInt(R.id.widget_circle, "setBackgroundResource", R.drawable.widget_circle_red)
             views.setTextViewText(R.id.widget_label, "OFF")
             views.setTextColor(R.id.widget_label, Color.WHITE)
         }

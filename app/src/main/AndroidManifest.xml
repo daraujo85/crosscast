@@ -66,9 +66,9 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
-        <!-- Boot Receiver (runs tunnel script) -->
+        <!-- Tunnel Starter Receiver (runs tunnel script) -->
         <receiver
-            android:name=".BootReceiver"
+            android:name=".TunnelStarterReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="com.crosscast.START_TUNNEL" />

@@ -5,6 +5,7 @@ drawable icon_camera
 drawable logo_crosscast
 drawable widget_circle_green
 drawable widget_circle_red
+id widget_circle
 id widget_label
 id widget_root
 layout widget_boot
