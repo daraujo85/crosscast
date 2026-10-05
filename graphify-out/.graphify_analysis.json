@@ -1,0 +1,199 @@
+{
+  "communities": {
+    "0": [
+      "app_src_main_java_com_campilot_mainactivity",
+      "app_src_main_java_com_campilot_mainactivity_cameraidinfo",
+      "app_src_main_java_com_campilot_mainactivity_kt_bitmap",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_checkpermissions",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_copytoclipboard",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_generateqrcode",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_getlocalipaddress",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_gridoverlay",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_hidesystemui",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_listcameras",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_oncreate",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_onwindowfocuschanged",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_performzoom",
+      "app_src_main_java_com_campilot_mainactivity_quicklens",
+      "app_src_main_java_com_campilot_ui_components_components_focusindicator",
+      "app_src_main_java_com_campilot_ui_theme_theme",
+      "app_src_main_java_com_campilot_ui_theme_theme_campilottheme",
+      "bundle",
+      "campilotcameramanager",
+      "componentactivity",
+      "offset"
+    ],
+    "1": [
+      "app_src_main_java_com_campilot_cameraservice",
+      "app_src_main_java_com_campilot_cameraservice_cameraservice",
+      "app_src_main_java_com_campilot_cameraservice_cameraservice_createnotification",
+      "app_src_main_java_com_campilot_cameraservice_cameraservice_createnotificationchannel",
+      "app_src_main_java_com_campilot_cameraservice_cameraservice_onbind",
+      "app_src_main_java_com_campilot_cameraservice_cameraservice_oncreate",
+      "app_src_main_java_com_campilot_cameraservice_cameraservice_ondestroy",
+      "app_src_main_java_com_campilot_cameraservice_cameraservice_startktorserver",
+      "app_src_main_java_com_campilot_cameraservice_kt_bytearray",
+      "app_src_main_java_com_campilot_cameraservice_kt_context",
+      "app_src_main_java_com_campilot_cameraservice_start",
+      "app_src_main_java_com_campilot_cameraservice_stop",
+      "app_src_main_java_com_campilot_mainactivity_mainactivity_shareaddress",
+      "app_src_main_java_com_campilot_networkutils",
+      "app_src_main_java_com_campilot_networkutils_getbestlocalipaddress",
+      "app_src_main_java_com_campilot_networkutils_kt_context",
+      "ibinder",
+      "intent",
+      "io",
+      "notification",
+      "service"
+    ],
+    "2": [
+      "androidx",
+      "app_src_main_java_com_campilot_camera_cameramanager",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager_enableflash",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager_imageproxytojpegwithrotation",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager_setzoom",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager_startcamerawithpreview",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager_switchcamera",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager_taptofocus",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager_toggleflash",
+      "app_src_main_java_com_campilot_camera_cameramanager_cameramanager_yuv420888tonv21",
+      "app_src_main_java_com_campilot_camera_cameramanager_kt_bytearray",
+      "imageproxy",
+      "lifecycleowner",
+      "previewview",
+      "processcameraprovider"
+    ],
+    "3": [
+      "app_src_main_java_com_campilot_ui_components_components",
+      "app_src_main_java_com_campilot_ui_components_components_connectionsheet",
+      "app_src_main_java_com_campilot_ui_components_components_glasspanel",
+      "app_src_main_java_com_campilot_ui_components_components_iconactionbutton",
+      "app_src_main_java_com_campilot_ui_components_components_kt_bitmap",
+      "app_src_main_java_com_campilot_ui_components_components_livepill",
+      "app_src_main_java_com_campilot_ui_components_components_recordbutton",
+      "app_src_main_java_com_campilot_ui_components_components_statuspill",
+      "app_src_main_java_com_campilot_ui_components_components_zoomselector",
+      "app_src_main_java_com_campilot_ui_components_components_zoomslider",
+      "closedfloatingpointrange",
+      "color",
+      "imagevector",
+      "modifier",
+      "roundedcornershape",
+      "sheetstate"
+    ],
+    "4": [
+      "obs_campilot_controller",
+      "obs_campilot_controller_apply_preset",
+      "obs_campilot_controller_on_event",
+      "obs_campilot_controller_script_description",
+      "obs_campilot_controller_script_load",
+      "obs_campilot_controller_script_properties",
+      "obs_campilot_controller_script_update"
+    ],
+    "5": [
+      "app_src_main_java_com_campilot_camera_cameracontrolregistry",
+      "app_src_main_java_com_campilot_camera_cameracontrolregistry_cameracommand",
+      "app_src_main_java_com_campilot_camera_cameracontrolregistry_cameracontrolregistry",
+      "app_src_main_java_com_campilot_camera_cameracontrolregistry_cameracontrolregistry_emitcommand"
+    ],
+    "6": [
+      "app_src_main_java_com_campilot_staticcamerabridge",
+      "app_src_main_java_com_campilot_staticcamerabridge_kt_bytearray",
+      "app_src_main_java_com_campilot_staticcamerabridge_staticcamerabridge"
+    ],
+    "7": [
+      "app_src_main_java_com_campilot_webrtc_webrtcmanager",
+      "app_src_main_java_com_campilot_webrtc_webrtcmanager_webrtcmanager",
+      "app_src_main_java_com_campilot_webrtc_webrtcmanager_webrtcmanager_close"
+    ],
+    "8": [
+      "app_build_gradle"
+    ],
+    "9": [
+      "app_src_main_java_com_campilot_ui_theme_color"
+    ],
+    "10": [
+      "app_src_main_java_com_campilot_ui_theme_type"
+    ],
+    "11": [
+      "build_gradle"
+    ],
+    "12": [
+      "settings_gradle"
+    ]
+  },
+  "cohesion": {
+    "0": 0.1471861471861472,
+    "1": 0.1380952380952381,
+    "2": 0.20833333333333334,
+    "3": 0.15833333333333333,
+    "4": 0.38095238095238093,
+    "5": 0.6666666666666666,
+    "6": 0.6666666666666666,
+    "7": 0.6666666666666666,
+    "8": 1.0,
+    "9": 1.0,
+    "10": 1.0,
+    "11": 1.0,
+    "12": 1.0
+  },
+  "gods": [
+    {
+      "id": "app_src_main_java_com_campilot_mainactivity_mainactivity",
+      "label": "MainActivity",
+      "degree": 14
+    },
+    {
+      "id": "app_src_main_java_com_campilot_camera_cameramanager_cameramanager",
+      "label": "CameraManager",
+      "degree": 14
+    },
+    {
+      "id": "app_src_main_java_com_campilot_cameraservice_cameraservice",
+      "label": "CameraService",
+      "degree": 10
+    },
+    {
+      "id": "app_src_main_java_com_campilot_ui_components_components_connectionsheet",
+      "label": "ConnectionSheet()",
+      "degree": 6
+    },
+    {
+      "id": "app_src_main_java_com_campilot_cameraservice_start",
+      "label": "start()",
+      "degree": 4
+    },
+    {
+      "id": "app_src_main_java_com_campilot_cameraservice_stop",
+      "label": "stop()",
+      "degree": 4
+    },
+    {
+      "id": "app_src_main_java_com_campilot_networkutils_getbestlocalipaddress",
+      "label": "getBestLocalIpAddress()",
+      "degree": 4
+    },
+    {
+      "id": "app_src_main_java_com_campilot_ui_components_components_glasspanel",
+      "label": "GlassPanel()",
+      "degree": 4
+    },
+    {
+      "id": "app_src_main_java_com_campilot_ui_components_components_iconactionbutton",
+      "label": "IconActionButton()",
+      "degree": 4
+    },
+    {
+      "id": "app_src_main_java_com_campilot_ui_components_components_statuspill",
+      "label": "StatusPill()",
+      "degree": 3
+    }
+  ],
+  "surprises": [],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
