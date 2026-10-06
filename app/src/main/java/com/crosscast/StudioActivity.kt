@@ -85,8 +85,10 @@ import com.crosscast.studio.auto.AutoSwitchState
 import com.crosscast.ui.theme.AppleGreen
 import com.crosscast.ui.theme.GlassBorder
 import com.crosscast.ui.theme.PurpleOBS
+import com.crosscast.ui.theme.AppleRed
 import com.crosscast.ui.theme.TextSecondary
 import com.crosscast.ui.theme.TextTertiary
+import com.crosscast.ui.components.LivePill
 
 class StudioActivity : ComponentActivity() {
 
@@ -101,6 +103,9 @@ class StudioActivity : ComponentActivity() {
             // Camera ready
         }
     }
+
+    // Track current camera ID at activity level (persists across recompositions)
+    private var currentCameraId: String = "0"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,9 +123,6 @@ class StudioActivity : ComponentActivity() {
         autoSwitchManager.startHolyricsDetection()
         requestPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
 
-        // Track current camera ID
-        var currentCameraId = "0"
-
         setContent {
             BackHandler { finish() }
             val obsState by autoSwitchManager.autoSwitchState.collectAsState()
@@ -130,10 +132,12 @@ class StudioActivity : ComponentActivity() {
             // Get camera ID from active scene
             val activeCameraId = obsState.activeScene?.cameraId ?: "0"
 
-            // Switch camera when scene changes
+            // Switch camera when scene changes - use remember to track camera state
+            var lastCameraId by remember { mutableStateOf(activeCameraId) }
+
             LaunchedEffect(activeCameraId) {
-                if (activeCameraId != currentCameraId) {
-                    currentCameraId = activeCameraId
+                if (activeCameraId != lastCameraId) {
+                    lastCameraId = activeCameraId
                     cameraManager.switchCamera(activeCameraId)
                 }
             }
@@ -225,16 +229,7 @@ fun StudioContent(
                     style = MaterialTheme.typography.titleMedium
                 )
             }
-            Surface(color = AppleGreen, shape = RoundedCornerShape(4.dp)) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(modifier = Modifier.size(8.dp).background(Color.Red, RoundedCornerShape(4.dp)))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "LIVE", color = Color.Black, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                }
-            }
+            LivePill()
         }
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -499,6 +494,7 @@ fun HolyricsOnlyScene(holyricsUrl: String) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(360.dp)
                 .aspectRatio(9f / 16f)
                 .border(3.dp, PurpleOBS.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color.Black),
@@ -513,6 +509,7 @@ fun HolyricsOnlyScene(holyricsUrl: String) {
                             settings.loadWithOverviewMode = true
                             settings.useWideViewPort = true
                             settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                             webViewClient = object : WebViewClient() {
                                 private var loadStartTime = System.currentTimeMillis()
                                 override fun onReceivedError(
@@ -689,6 +686,7 @@ fun SplitScene(
                                 settings.loadWithOverviewMode = true
                                 settings.useWideViewPort = true
                                 settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                                settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                                 webViewClient = object : WebViewClient() {
                                     private var loadStartTime = System.currentTimeMillis()
                                     override fun onReceivedError(

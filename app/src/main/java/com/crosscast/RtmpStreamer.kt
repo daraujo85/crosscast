@@ -109,17 +109,22 @@ class RtmpStreamer(private val context: Context) {
         _streamAddress.value = address
         _streamState.value = StreamState.CONNECTING
 
+        Log.d(TAG, "Starting stream to: $address")
+
         if (encoder == null) {
             if (initialize() == null) {
                 isStreaming.set(false)
+                Log.e(TAG, "Failed to initialize encoder")
                 return
             }
+            Log.d(TAG, "Encoder initialized")
         }
 
         // Start encoder processing on background coroutine
         encoderJob = streamerScope.launch {
             processEncoderOutput()
         }
+        Log.d(TAG, "Encoder output processor started")
 
         rtmpClient = RtmpClient()
         // Run connection on IO dispatcher to avoid NetworkOnMainThreadException
@@ -127,14 +132,12 @@ class RtmpStreamer(private val context: Context) {
             rtmpClient?.connect(
                 url = address,
                 onSuccess = {
-                    streamerScope.launch(Dispatchers.IO) {
-                        rtmpClient?.publish("")
-                    }
+                    Log.d(TAG, "RTMP connected successfully")
                     _streamState.value = StreamState.LIVE
                     Log.d(TAG, "Stream started: $address")
                 },
                 onFailure = { e ->
-                    Log.e(TAG, "Connection failed", e)
+                    Log.e(TAG, "Connection failed: ${e.message}", e)
                     _streamState.value = StreamState.ERROR
                     isStreaming.set(false)
                 }
@@ -245,7 +248,7 @@ class RtmpStreamer(private val context: Context) {
 
             val canvas = surface.lockHardwareCanvas()
             canvas.drawColor(android.graphics.Color.BLACK)
-            
+
             val bitmap = android.graphics.BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
             if (bitmap != null) {
                 val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, VIDEO_WIDTH, VIDEO_HEIGHT, true)
@@ -253,11 +256,16 @@ class RtmpStreamer(private val context: Context) {
                 if (scaled != bitmap) scaled.recycle()
                 bitmap.recycle()
             }
-            
+
             surface.unlockCanvasAndPost(canvas)
-            
+
+            // Update state to ENCODING while frames are being processed
+            if (_streamState.value != StreamState.LIVE) {
+                _streamState.value = StreamState.ENCODING
+            }
+
         } catch (e: Exception) {
-            Log.e(TAG, "Error encoding frame", e)
+            Log.e(TAG, "Error encoding frame: ${e.message}", e)
         }
     }
 

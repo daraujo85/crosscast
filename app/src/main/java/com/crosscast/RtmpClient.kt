@@ -6,6 +6,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -19,11 +20,11 @@ class RtmpClient {
         private const val TAG = "RtmpClient"
         private const val CHUNK_SIZE = 4096
         private const val HANDSHAKE_SIZE = 1536
-        
+
         private const val MSG_VIDEO = 9
         private const val MSG_AUDIO = 8
         private const val MSG_AMF0_CMD = 20
-        
+
         private const val CMD_CONNECT = "connect"
         private const val CMD_CREATE_STREAM = "createStream"
         private const val CMD_PUBLISH = "publish"
@@ -38,6 +39,7 @@ class RtmpClient {
 
     private var socket: Socket? = null
     private var outputStream: java.io.OutputStream? = null
+    private var inputStream: java.io.InputStream? = null
 
     private val clientScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -68,36 +70,66 @@ class RtmpClient {
 
                 val parsed = parseRtmpUrl(url)
                 appName = parsed.app
+                Log.d(TAG, "Connecting to ${parsed.host}:${parsed.port}/$appName")
 
                 socket = Socket(parsed.host, parsed.port)
-                socket?.soTimeout = 10000
+                socket?.soTimeout = 15000
                 outputStream = socket?.getOutputStream()
+                inputStream = socket?.getInputStream()
 
+                // C0 + C1
                 val c0c1 = createHandshakeC0C1()
                 outputStream?.write(c0c1)
                 outputStream?.flush()
+                Log.d(TAG, "Sent C0+C1")
 
+                // S0 + S1 + S2 (read all 3073 bytes)
                 val s0s1s2 = ByteArray(HANDSHAKE_SIZE * 2 + 1)
-                val bytesRead = socket?.getInputStream()?.read(s0s1s2) ?: -1
+                var bytesRead = 0
+                while (bytesRead < s0s1s2.size) {
+                    val read = inputStream?.read(s0s1s2, bytesRead, s0s1s2.size - bytesRead) ?: -1
+                    if (read == -1) break
+                    bytesRead += read
+                }
+
                 if (bytesRead < HANDSHAKE_SIZE * 2 + 1) {
+                    Log.e(TAG, "Handshake incomplete: got $bytesRead bytes, expected ${HANDSHAKE_SIZE * 2 + 1}")
                     withContext(Dispatchers.Main) {
                         _state.value = State.ERROR
-                    }
-                    withContext(Dispatchers.Main) {
-                        onConnectFailure?.invoke(IllegalStateException("Handshake failed"))
+                        onConnectFailure?.invoke(IllegalStateException("Handshake incomplete"))
                     }
                     return@launch
                 }
+                Log.d(TAG, "Received S0+S1+S2")
 
+                // Send C2 (echo S1)
                 outputStream?.write(s0s1s2, 1, HANDSHAKE_SIZE)
                 outputStream?.flush()
+                Log.d(TAG, "Sent C2, handshake complete")
 
                 withContext(Dispatchers.Main) {
                     _state.value = State.CONNECTING
                 }
-                sendConnect(appName)
 
-                Log.d(TAG, "Connected to $url")
+                // Send connect command
+                sendConnect(appName)
+                Log.d(TAG, "Sent connect command")
+
+                // Wait for response (simple wait for connect result)
+                delay(500)
+
+                // Send createStream
+                sendCreateStream()
+                Log.d(TAG, "Sent createStream command")
+
+                delay(300)
+
+                // Send publish
+                sendPublish("")
+                Log.d(TAG, "Sent publish command")
+
+                _state.value = State.STREAMING
+                Log.d(TAG, "RTMP stream ready: $url")
                 withContext(Dispatchers.Main) {
                     onConnectSuccess?.invoke()
                 }
@@ -113,7 +145,10 @@ class RtmpClient {
     }
 
     fun publish(streamKey: String): Boolean {
-        if (_state.value != State.CONNECTING) return false
+        if (_state.value != State.CONNECTING && _state.value != State.STREAMING) {
+            Log.w(TAG, "Cannot publish: state is ${_state.value}")
+            // Still try to publish even if not in CONNECTING state
+        }
         sendCreateStream()
         sendPublish(streamKey)
         _state.value = State.STREAMING
