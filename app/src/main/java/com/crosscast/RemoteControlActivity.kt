@@ -61,18 +61,17 @@ import kotlinx.coroutines.SupervisorJob
 
 class RemoteControlActivity : ComponentActivity() {
 
-    private lateinit var autoSwitchManager: AutoSwitchManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hideSystemUI()
 
-        autoSwitchManager = AutoSwitchManager(this, scope)
-        autoSwitchManager.startHolyricsDetection()
+        AutoSwitchManager.initialize(this, scope)
+        AutoSwitchManager.startHolyricsDetection()
 
         setContent {
-            val obsState by autoSwitchManager.autoSwitchState.collectAsState()
+            val obsState by AutoSwitchManager.autoSwitchState.collectAsState()
             val ipAddress = remember { getLocalIpAddress() }
 
             RemoteControlContent(
@@ -80,16 +79,16 @@ class RemoteControlActivity : ComponentActivity() {
                 ipAddress = ipAddress,
                 onBack = { finish() },
                 onSceneSelect = { sceneId ->
-                    autoSwitchManager.activateScene(sceneId)
+                    AutoSwitchManager.activateScene(sceneId)
                 },
-                onTake = { autoSwitchManager.nextScene() }
+                onTake = { AutoSwitchManager.nextScene() }
             )
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        autoSwitchManager.destroy()
+        AutoSwitchManager.destroy()
     }
 
     private fun hideSystemUI() {

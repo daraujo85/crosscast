@@ -102,7 +102,6 @@ import kotlinx.coroutines.launch
 
 class StudioActivity : ComponentActivity() {
 
-    private lateinit var autoSwitchManager: AutoSwitchManager
     private lateinit var cameraManager: com.crosscast.camera.CameraManager
     private lateinit var rtmpStreamer: RtmpStreamer
     private lateinit var settingsDataStore: SettingsDataStore
@@ -121,7 +120,7 @@ class StudioActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         hideSystemUI()
-        autoSwitchManager = AutoSwitchManager(this, lifecycleScope)
+        AutoSwitchManager.initialize(this, lifecycleScope)
         cameraManager = com.crosscast.camera.CameraManager(this)
         rtmpStreamer = RtmpStreamer(this)
         settingsDataStore = SettingsDataStore(this)
@@ -130,12 +129,12 @@ class StudioActivity : ComponentActivity() {
             rtmpStreamer.encodeFrame(jpegData, isKeyframe = false)
         }
 
-        autoSwitchManager.startHolyricsDetection()
+        AutoSwitchManager.startHolyricsDetection()
         requestPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
 
         setContent {
             BackHandler { finish() }
-            val obsState by autoSwitchManager.autoSwitchState.collectAsState()
+            val obsState by AutoSwitchManager.autoSwitchState.collectAsState()
             val streamState by rtmpStreamer.streamState.collectAsState()
 
             // Load settings
@@ -174,11 +173,11 @@ class StudioActivity : ComponentActivity() {
                 activeCameraId = activeCameraId,
                 onBack = { finish() },
                 onSceneSelect = { sceneId ->
-                    autoSwitchManager.activateScene(sceneId)
+                    AutoSwitchManager.activateScene(sceneId)
                 },
-                onTake = { autoSwitchManager.nextScene() },
-                onToggleAutoSwitch = { autoSwitchManager.toggleAutoSwitch() },
-                onToggleDetection = { if (obsState.detectionActive) autoSwitchManager.stopHolyricsDetection() else autoSwitchManager.startHolyricsDetection() },
+                onTake = { AutoSwitchManager.nextScene() },
+                onToggleAutoSwitch = { AutoSwitchManager.toggleAutoSwitch() },
+                onToggleDetection = { if (obsState.detectionActive) AutoSwitchManager.stopHolyricsDetection() else AutoSwitchManager.startHolyricsDetection() },
                 streamState = streamState,
                 streamAddress = settings.rtmpUrl,
                 onToggleStream = {
@@ -200,7 +199,7 @@ class StudioActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        autoSwitchManager.destroy()
+        AutoSwitchManager.destroy()
         rtmpStreamer.release()
     }
 

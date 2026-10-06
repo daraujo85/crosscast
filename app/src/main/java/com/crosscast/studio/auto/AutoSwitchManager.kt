@@ -10,12 +10,23 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 
-class AutoSwitchManager(private val context: Context, private val scope: CoroutineScope) {
+object AutoSwitchManager {
 
-    companion object { private const val TAG = "ObsManager" }
+    private const val TAG = "ObsManager"
 
+    private var _context: Context? = null
+    private var _scope: CoroutineScope? = null
     private val _autoSwitchState = MutableStateFlow(AutoSwitchState())
     val autoSwitchState: StateFlow<AutoSwitchState> = _autoSwitchState.asStateFlow()
+
+    fun initialize(context: Context, scope: CoroutineScope) {
+        _context = context.applicationContext
+        _scope = scope
+        initializeDefaultScenes()
+        initializeDefaultSources()
+    }
+
+    val isInitialized: Boolean get() = _context != null && _scope != null
 
     private val scenes = ConcurrentHashMap<String, AutoSwitchScene>()
     private val sources = ConcurrentHashMap<String, AutoSwitchSource>()
@@ -31,15 +42,13 @@ class AutoSwitchManager(private val context: Context, private val scope: Corouti
     var timerSwitchEnabled = false
     var timerSwitchSeconds = 10L
 
-    init { initializeDefaultScenes(); initializeDefaultSources() }
-
     private fun initializeDefaultScenes() {
         scenes["camera_main"] = AutoSwitchScene("camera_main", "Câmera Principal", listOf(AutoSwitchLayer(AutoSwitchLayerType.CAMERA, AutoSwitchLayerPosition.FULL)), "0", 1.0f)
         scenes["camera_wide"] = AutoSwitchScene("camera_wide", "Câmera Wide", listOf(AutoSwitchLayer(AutoSwitchLayerType.CAMERA, AutoSwitchLayerPosition.FULL)), "2", 1.0f)
         scenes["camera_telephoto"] = AutoSwitchScene("camera_telephoto", "Câmera Tele", listOf(AutoSwitchLayer(AutoSwitchLayerType.CAMERA, AutoSwitchLayerPosition.FULL)), "4", 1.0f)
         scenes["camera_pip_holyrics"] = AutoSwitchScene("camera_pip_holyrics", "Câmera + Projeção", listOf(AutoSwitchLayer(AutoSwitchLayerType.CAMERA, AutoSwitchLayerPosition.FULL), AutoSwitchLayer(AutoSwitchLayerType.HOLYRICS_OVERLAY, AutoSwitchLayerPosition.BOTTOM, 33f)), "0", 1.0f)
         scenes["holyrics_only"] = AutoSwitchScene("holyrics_only", "Somente Projeção", listOf(AutoSwitchLayer(AutoSwitchLayerType.HOLYRICS_OVERLAY, AutoSwitchLayerPosition.FULL)))
-        _autoSwitchState.value = autoSwitchState.value.copy(availableScenes = scenes.values.toList(), activeScene = scenes["camera_main"]!!)
+        _autoSwitchState.value = _autoSwitchState.value.copy(availableScenes = scenes.values.toList(), activeScene = scenes["camera_main"]!!)
     }
 
     private fun initializeDefaultSources() {
@@ -69,7 +78,7 @@ class AutoSwitchManager(private val context: Context, private val scope: Corouti
 
     fun startSignalDetection(sourceId: String) {
         val source = sources[sourceId] ?: return
-        scope.launch {
+        _scope!!.launch {
             while (isActive) {
                 try {
                     val hasSignal = detectSignal(source.signalDetectionUrl)
@@ -108,7 +117,7 @@ class AutoSwitchManager(private val context: Context, private val scope: Corouti
 
     fun startHolyricsDetection() {
         if (holyricsJob?.isActive == true) return
-        holyricsJob = scope.launch {
+        holyricsJob = _scope!!.launch {
             while (isActive) {
                 try {
                     val hasProj = detectHolyrics()
@@ -156,7 +165,7 @@ class AutoSwitchManager(private val context: Context, private val scope: Corouti
     fun startTimerSwitch() {
         if (timerSwitchJob?.isActive == true) return
         timerSwitchEnabled = true
-        timerSwitchJob = scope.launch {
+        timerSwitchJob = _scope!!.launch {
             val sceneList = scenes.values.toList()
             var idx = 0
             while (isActive && timerSwitchEnabled) {
@@ -181,7 +190,7 @@ class AutoSwitchManager(private val context: Context, private val scope: Corouti
     fun startAutoSwitch() {
         if (autoSwitchJob?.isActive == true) return
         _autoSwitchState.value = _autoSwitchState.value.copy(autoSwitchEnabled = true)
-        autoSwitchJob = scope.launch {
+        autoSwitchJob = _scope!!.launch {
             val cams = listOf("camera_main", "camera_wide", "camera_telephoto")
             var idx = 0
             while (isActive && _autoSwitchState.value.autoSwitchEnabled) {
@@ -209,15 +218,15 @@ class AutoSwitchManager(private val context: Context, private val scope: Corouti
 
     fun getSource(id: String): AutoSwitchSource? = sources[id]
 
-    fun addScene(scene: AutoSwitchScene) { 
+    fun addScene(scene: AutoSwitchScene) {
         scenes[scene.id] = scene
-        _autoSwitchState.value = autoSwitchState.value.copy(availableScenes = scenes.values.toList()) 
+        _autoSwitchState.value = _autoSwitchState.value.copy(availableScenes = scenes.values.toList())
     }
 
     fun removeScene(sceneId: String) {
         if (sceneId.startsWith("camera_") || sceneId == "holyrics_only") return
         scenes.remove(sceneId)
-        _autoSwitchState.value = autoSwitchState.value.copy(availableScenes = scenes.values.toList())
+        _autoSwitchState.value = _autoSwitchState.value.copy(availableScenes = scenes.values.toList())
     }
 
     fun destroy() { stopHolyricsDetection(); stopAutoSwitch(); stopTimerSwitch() }
