@@ -10,9 +10,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,19 +25,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Warning
@@ -41,6 +48,7 @@ import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -48,29 +56,31 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -85,16 +95,17 @@ import com.crosscast.studio.auto.AutoSwitchState
 import com.crosscast.ui.theme.AppleGreen
 import com.crosscast.ui.theme.GlassBorder
 import com.crosscast.ui.theme.PurpleOBS
-import com.crosscast.ui.theme.AppleRed
 import com.crosscast.ui.theme.TextSecondary
 import com.crosscast.ui.theme.TextTertiary
 import com.crosscast.ui.components.LivePill
+import kotlinx.coroutines.launch
 
 class StudioActivity : ComponentActivity() {
 
     private lateinit var autoSwitchManager: AutoSwitchManager
     private lateinit var cameraManager: com.crosscast.camera.CameraManager
     private lateinit var rtmpStreamer: RtmpStreamer
+    private lateinit var settingsDataStore: SettingsDataStore
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -104,7 +115,6 @@ class StudioActivity : ComponentActivity() {
         }
     }
 
-    // Track current camera ID at activity level (persists across recompositions)
     private var currentCameraId: String = "0"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -114,8 +124,8 @@ class StudioActivity : ComponentActivity() {
         autoSwitchManager = AutoSwitchManager(this, lifecycleScope)
         cameraManager = com.crosscast.camera.CameraManager(this)
         rtmpStreamer = RtmpStreamer(this)
+        settingsDataStore = SettingsDataStore(this)
 
-        // Wire camera frames to RTMP streamer
         cameraManager.onFrameCaptured = { jpegData ->
             rtmpStreamer.encodeFrame(jpegData, isKeyframe = false)
         }
@@ -127,12 +137,28 @@ class StudioActivity : ComponentActivity() {
             BackHandler { finish() }
             val obsState by autoSwitchManager.autoSwitchState.collectAsState()
             val streamState by rtmpStreamer.streamState.collectAsState()
-            val streamAddress by rtmpStreamer.streamAddress.collectAsState()
 
-            // Get camera ID from active scene
-            val activeCameraId = obsState.activeScene?.cameraId ?: "0"
+            // Load settings
+            val scope = rememberCoroutineScope()
+            val settings by settingsDataStore.streamSettings.collectAsState(
+                initial = SettingsDataStore.StreamSettings(
+                    rtmpUrl = SettingsDataStore.DEFAULT_RTMP_URL,
+                    streamKey = "",
+                    cameraId = "0",
+                    width = 1280,
+                    height = 720,
+                    bitrate = 2500000
+                )
+            )
 
-            // Switch camera when scene changes - use remember to track camera state
+            // Configure RTMP streamer with settings
+            LaunchedEffect(settings) {
+                rtmpStreamer.configure(settings.width, settings.height, settings.bitrate)
+            }
+
+            var showSettings by remember { mutableStateOf(false) }
+
+            val activeCameraId = obsState.activeScene?.cameraId ?: settings.cameraId
             var lastCameraId by remember { mutableStateOf(activeCameraId) }
 
             LaunchedEffect(activeCameraId) {
@@ -149,14 +175,24 @@ class StudioActivity : ComponentActivity() {
                 onBack = { finish() },
                 onSceneSelect = { sceneId ->
                     autoSwitchManager.activateScene(sceneId)
-                    // Camera will be switched via LaunchedEffect above
                 },
                 onTake = { autoSwitchManager.nextScene() },
                 onToggleAutoSwitch = { autoSwitchManager.toggleAutoSwitch() },
                 onToggleDetection = { if (obsState.detectionActive) autoSwitchManager.stopHolyricsDetection() else autoSwitchManager.startHolyricsDetection() },
                 streamState = streamState,
-                streamAddress = streamAddress,
-                onToggleStream = { rtmpStreamer.toggleStream(streamAddress) },
+                streamAddress = settings.rtmpUrl,
+                onToggleStream = {
+                    val fullUrl = if (settings.streamKey.isNotEmpty()) {
+                        "${settings.rtmpUrl}/${settings.streamKey}"
+                    } else {
+                        settings.rtmpUrl
+                    }
+                    rtmpStreamer.toggleStream(fullUrl)
+                },
+                showSettings = showSettings,
+                onToggleSettings = { showSettings = !showSettings },
+                settingsDataStore = settingsDataStore,
+                currentSettings = settings,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -190,221 +226,530 @@ fun StudioContent(
     streamState: RtmpStreamer.StreamState = RtmpStreamer.StreamState.OFFLINE,
     streamAddress: String = RtmpStreamer.DEFAULT_RTMP_URL,
     onToggleStream: () -> Unit = {},
-    onStreamAddressChange: (String) -> Unit = {},
+    showSettings: Boolean = false,
+    onToggleSettings: () -> Unit = {},
+    settingsDataStore: SettingsDataStore? = null,
+    currentSettings: SettingsDataStore.StreamSettings? = null,
     modifier: Modifier = Modifier
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    Column(
-        modifier = modifier
-            .background(Color.Black)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Voltar ao menu",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Text(
-                    text = androidx.compose.ui.text.buildAnnotatedString {
-                        withStyle(androidx.compose.ui.text.SpanStyle(color = AppleGreen, fontWeight = FontWeight.Light)) {
-                            append("Cross")
-                        }
-                        withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White, fontWeight = FontWeight.Light)) {
-                            append("Cast")
-                        }
-                        withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
-                            append(" Studio")
-                        }
-                    },
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            LivePill()
-        }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = "Current: ${obsState.activeSceneId}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Cenas com tratamento especial
-        when (obsState.activeSceneId) {
-            "camera_pip_holyrics" -> {
-                SplitScene(
-                    cameraManager = cameraManager,
-                    lifecycleOwner = lifecycleOwner,
-                    holyricsUrl = "http://192.168.31.231/view/widescreen",
-                    activeCameraId = activeCameraId,
-                    isProjecting = obsState.isProjecting
-                )
-            }
-            "holyrics_only" -> {
-                HolyricsOnlyScene(
-                    holyricsUrl = "http://192.168.31.231/view/widescreen"
-                )
-            }
-            else -> {
-                CameraProgramScene(
-                    cameraManager = cameraManager,
-                    lifecycleOwner = lifecycleOwner,
-                    activeCameraId = activeCameraId,
-                    sceneName = obsState.activeScene?.name ?: "No scene"
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Scenes", color = Color.White, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp)
-        ) {
-            items(obsState.availableScenes) { scene ->
-                val isActive = scene.id == obsState.activeSceneId
-                Card(
-                    modifier = Modifier
-                        .width(90.dp)
-                        .height(80.dp)
-                        .clickable { onSceneSelect(scene.id) }
-                        .border(
-                            width = if (isActive) 3.dp else 1.dp,
-                            color = if (isActive) AppleGreen else GlassBorder,
-                            shape = RoundedCornerShape(12.dp)
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isActive) AppleGreen.copy(alpha = 0.25f) else Color(0xFF2A2A2A)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isActive) Icons.Default.PlayArrow else Icons.Default.VideoLibrary,
-                            contentDescription = if (isActive) "Ativo" else "Inativo",
-                            tint = if (isActive) AppleGreen else TextSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = scene.name,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isActive) AppleGreen else Color.White,
-                            maxLines = 2,
-                            fontSize = 10.sp,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 11.sp
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = onTake,
+    Box(modifier = modifier.background(Color.Black)) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-            shape = RoundedCornerShape(12.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp)
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
+            // Compact Header
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Default.SwapHoriz,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    "TAKE",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)), shape = RoundedCornerShape(12.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = PurpleOBS, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text("Auto Switch", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("10s per scene", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                    IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Voltar",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        text = "CrossCast",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LivePill()
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = onToggleSettings, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = if (showSettings) Icons.Default.Close else Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
-                Switch(
-                    checked = obsState.autoSwitchEnabled,
-                    onCheckedChange = { onToggleAutoSwitch() },
-                    colors = SwitchDefaults.colors(checkedThumbColor = PurpleOBS, checkedTrackColor = PurpleOBS.copy(alpha = 0.5f))
+            }
+
+            // Scene indicator
+            Text(
+                text = obsState.activeSceneId ?: "No scene",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
+            // PROGRAM / Preview Area - Max height
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                when (obsState.activeSceneId) {
+                    "camera_pip_holyrics" -> {
+                        SplitScene(
+                            cameraManager = cameraManager,
+                            lifecycleOwner = lifecycleOwner,
+                            holyricsUrl = "http://192.168.31.231/view/widescreen",
+                            activeCameraId = activeCameraId,
+                            isProjecting = obsState.isProjecting
+                        )
+                    }
+                    "holyrics_only" -> {
+                        HolyricsOnlyScene(holyricsUrl = "http://192.168.31.231/view/widescreen")
+                    }
+                    else -> {
+                        CameraProgramScene(
+                            cameraManager = cameraManager,
+                            lifecycleOwner = lifecycleOwner,
+                            activeCameraId = activeCameraId,
+                            sceneName = obsState.activeScene?.name ?: "No scene"
+                        )
+                    }
+                }
+
+                // Projection indicator overlay
+                if (obsState.isProjecting) {
+                    Surface(
+                        color = PurpleOBS.copy(alpha = 0.85f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Visibility,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "PROJECTING",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Scene Strip - Compact horizontal scroll
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Scenes", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Tap to switch",
+                    color = TextSecondary,
+                    fontSize = 10.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp)
+            ) {
+                items(obsState.availableScenes) { scene ->
+                    val isActive = scene.id == obsState.activeSceneId
+                    Card(
+                        modifier = Modifier
+                            .width(72.dp)
+                            .height(56.dp)
+                            .clickable { onSceneSelect(scene.id) }
+                            .border(
+                                width = if (isActive) 2.dp else 1.dp,
+                                color = if (isActive) AppleGreen else GlassBorder,
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isActive) AppleGreen.copy(alpha = 0.2f) else Color(0xFF2A2A2A)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isActive) Icons.Default.PlayArrow else Icons.Default.VideoLibrary,
+                                contentDescription = if (isActive) "Ativo" else "Inativo",
+                                tint = if (isActive) AppleGreen else TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = scene.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isActive) AppleGreen else Color.White,
+                                maxLines = 1,
+                                fontSize = 9.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+
+            // TAKE Button
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = onTake,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.SwapHoriz,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "TAKE",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                }
+            }
+
+            // Bottom controls row
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Auto Switch Toggle
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = PurpleOBS,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Auto", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Switch(
+                            checked = obsState.autoSwitchEnabled,
+                            onCheckedChange = { onToggleAutoSwitch() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = PurpleOBS,
+                                checkedTrackColor = PurpleOBS.copy(alpha = 0.5f)
+                            ),
+                            modifier = Modifier.height(24.dp)
+                        )
+                    }
+                }
+
+                // Stream Toggle
+                StreamButton(
+                    streamState = streamState,
+                    onToggleStream = onToggleStream,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        StreamingCard(
-            streamState = streamState,
-            streamAddress = streamAddress,
-            onToggleStream = onToggleStream,
-            onAddressChange = onStreamAddressChange
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)), shape = RoundedCornerShape(12.dp)) {
-            Row(
+        // Settings Panel (slide up from bottom)
+        AnimatedVisibility(
+            visible = showSettings,
+            enter = slideInVertically { it },
+            exit = slideOutVertically { it },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            SettingsPanel(
+                settingsDataStore = settingsDataStore,
+                currentSettings = currentSettings,
+                onClose = onToggleSettings,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .fillMaxSize()
+            )
+        }
+    }
+}
+
+@Composable
+fun StreamButton(
+    streamState: RtmpStreamer.StreamState,
+    onToggleStream: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isLive = streamState == RtmpStreamer.StreamState.LIVE
+    val isConnecting = streamState == RtmpStreamer.StreamState.CONNECTING
+
+    val statusColor = when (streamState) {
+        RtmpStreamer.StreamState.LIVE -> Color.Red
+        RtmpStreamer.StreamState.CONNECTING -> Color.Yellow
+        RtmpStreamer.StreamState.ERROR -> Color.Red.copy(alpha = 0.5f)
+        else -> TextTertiary
+    }
+
+    Card(
+        modifier = modifier.clickable(enabled = !isConnecting) { onToggleStream() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isLive) Color.Red.copy(alpha = 0.2f) else Color(0xFF2A2A2A)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(statusColor)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isLive) "LIVE" else "STREAM",
+                    color = if (isLive) Color.Red else Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Icon(
+                imageVector = if (isLive) Icons.Default.Stop else Icons.Default.FiberManualRecord,
+                contentDescription = null,
+                tint = if (isLive) Color.Red else AppleGreen,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsPanel(
+    settingsDataStore: SettingsDataStore?,
+    currentSettings: SettingsDataStore.StreamSettings?,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var rtmpUrl by remember { mutableStateOf(currentSettings?.rtmpUrl ?: SettingsDataStore.DEFAULT_RTMP_URL) }
+    var streamKey by remember { mutableStateOf(currentSettings?.streamKey ?: "") }
+    var cameraId by remember { mutableStateOf(currentSettings?.cameraId ?: "0") }
+    var bitrate by remember { mutableFloatStateOf((currentSettings?.bitrate ?: 2500000).toFloat()) }
+    var resolution by remember { mutableStateOf(currentSettings?.width ?: 1280) }
+
+    LaunchedEffect(currentSettings) {
+        currentSettings?.let {
+            rtmpUrl = it.rtmpUrl
+            streamKey = it.streamKey
+            cameraId = it.cameraId
+            bitrate = it.bitrate.toFloat()
+            resolution = it.width
+        }
+    }
+
+    Surface(
+        modifier = modifier,
+        color = Color(0xFF1A1A1A)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Sources", color = Color.White, fontWeight = FontWeight.Bold)
-                Row {
-                    obsState.availableSources.forEach { source ->
-                        Box(modifier = Modifier.size(12.dp).clip(RoundedCornerShape(6.dp)).background(if (source.hasSignal) AppleGreen else TextTertiary))
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+                Text(
+                    "Stream Settings",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                 }
             }
-        }
 
-        if (obsState.isProjecting) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Surface(color = PurpleOBS.copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp)) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Visibility, contentDescription = null, tint = PurpleOBS, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Projection → Camera + Lyrics", color = PurpleOBS, style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // RTMP URL
+            Text("RTMP Server URL", color = TextSecondary, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = rtmpUrl,
+                onValueChange = { rtmpUrl = it },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = PurpleOBS,
+                    unfocusedBorderColor = GlassBorder
+                ),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Stream Key
+            Text("Stream Key (optional)", color = TextSecondary, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = streamKey,
+                onValueChange = { streamKey = it },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = PurpleOBS,
+                    unfocusedBorderColor = GlassBorder
+                ),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Camera Selection
+            Text("Camera", color = TextSecondary, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("0" to "Back", "1" to "Front", "2" to "Wide").forEach { (id, label) ->
+                    Card(
+                        modifier = Modifier
+                            .clickable { cameraId = id }
+                            .then(
+                                if (cameraId == id) Modifier.border(2.dp, AppleGreen, RoundedCornerShape(8.dp))
+                                else Modifier
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (cameraId == id) AppleGreen.copy(alpha = 0.2f) else Color(0xFF2A2A2A)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            label,
+                            color = if (cameraId == id) AppleGreen else Color.White,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            fontSize = 12.sp
+                        )
+                    }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Resolution
+            Text("Resolution: ${resolution}p", color = TextSecondary, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(720 to "720p", 1080 to "1080p").forEach { (res, label) ->
+                    Card(
+                        modifier = Modifier
+                            .clickable { resolution = res }
+                            .then(
+                                if (resolution == res) Modifier.border(2.dp, PurpleOBS, RoundedCornerShape(8.dp))
+                                else Modifier
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (resolution == res) PurpleOBS.copy(alpha = 0.2f) else Color(0xFF2A2A2A)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            label,
+                            color = if (resolution == res) PurpleOBS else Color.White,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bitrate
+            Text("Bitrate: ${bitrate.toInt() / 1000} kbps", color = TextSecondary, fontSize = 12.sp)
+            Slider(
+                value = bitrate,
+                onValueChange = { bitrate = it },
+                valueRange = 1_000_000f..6_000_000f,
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    thumbColor = PurpleOBS,
+                    activeTrackColor = PurpleOBS
+                )
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Save Button
+            Button(
+                onClick = {
+                    scope.launch {
+                        settingsDataStore?.setRtmpUrl(rtmpUrl)
+                        settingsDataStore?.setStreamKey(streamKey)
+                        settingsDataStore?.setCameraId(cameraId)
+                        settingsDataStore?.setResolution(resolution, resolution * 9 / 16)
+                        settingsDataStore?.setBitrate(bitrate.toInt())
+                    }
+                    onClose()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AppleGreen),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Save Settings", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -419,14 +764,14 @@ fun CameraProgramScene(
 ) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(360.dp),
+            .fillMaxSize()
+            .clip(RoundedCornerShape(12.dp))
+            .border(2.dp, Color.Red.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center
     ) {
         Card(
             modifier = Modifier
-                .aspectRatio(9f / 16f)
-                .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+                .fillMaxSize(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -493,10 +838,8 @@ fun HolyricsOnlyScene(holyricsUrl: String) {
     if (holyricsOk) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(360.dp)
-                .aspectRatio(9f / 16f)
-                .border(3.dp, PurpleOBS.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+                .fillMaxSize()
+                .border(2.dp, PurpleOBS.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color.Black),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -518,7 +861,6 @@ fun HolyricsOnlyScene(holyricsUrl: String) {
                                     description: String?,
                                     failingUrl: String?
                                 ) {
-                                    // Only mark as failed if it's the main URL and at least 3 seconds have passed
                                     if (failingUrl == holyricsUrl && System.currentTimeMillis() - loadStartTime >= 3000) {
                                         holyricsOk = false
                                     }
@@ -529,7 +871,6 @@ fun HolyricsOnlyScene(holyricsUrl: String) {
                                     errorResponse: android.webkit.WebResourceResponse?
                                 ) {
                                     val url = request?.url?.toString()
-                                    // Only mark as failed if it's the main URL (not sub-resources like .jpg)
                                     if (url == holyricsUrl && errorResponse?.statusCode == 404 && System.currentTimeMillis() - loadStartTime >= 3000) {
                                         holyricsOk = false
                                     }
@@ -554,9 +895,8 @@ fun HolyricsOnlyScene(holyricsUrl: String) {
     } else {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(9f / 16f)
-                .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+                .fillMaxSize()
+                .border(2.dp, Color.Red.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -590,14 +930,11 @@ fun SplitScene(
 ) {
     var holyricsOk by remember { mutableStateOf(true) }
 
-    // Show full-screen camera if Holyrics is not projecting
     if (!isProjecting) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(360.dp)
-                .aspectRatio(9f / 16f)
-                .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+                .fillMaxSize()
+                .border(2.dp, Color.Red.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -633,15 +970,12 @@ fun SplitScene(
     if (holyricsOk) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(360.dp)
-                .aspectRatio(9f / 16f)
-                .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+                .fillMaxSize()
+                .border(2.dp, Color.Red.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Top: Camera preview (50%)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -671,7 +1005,6 @@ fun SplitScene(
                         Text("CAM", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                // Bottom: Holyrics (50%)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -695,7 +1028,6 @@ fun SplitScene(
                                         description: String?,
                                         failingUrl: String?
                                     ) {
-                                        // Only mark as failed if it's the main URL and at least 3 seconds have passed
                                         if (failingUrl == holyricsUrl && System.currentTimeMillis() - loadStartTime >= 3000) {
                                             holyricsOk = false
                                         }
@@ -706,7 +1038,6 @@ fun SplitScene(
                                         errorResponse: android.webkit.WebResourceResponse?
                                     ) {
                                         val url = request?.url?.toString()
-                                        // Only mark as failed if it's the main URL (not sub-resources like .jpg)
                                         if (url == holyricsUrl && errorResponse?.statusCode == 404 && System.currentTimeMillis() - loadStartTime >= 3000) {
                                             holyricsOk = false
                                         }
@@ -724,19 +1055,16 @@ fun SplitScene(
                             .padding(4.dp),
                         shape = RoundedCornerShape(4.dp)
                     ) {
-                        Text("HOLYRICS", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        Text("LYRICS", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
         }
     } else {
-        // Holyrics falhou - mostra só camera fullscreen
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(360.dp)
-                .aspectRatio(9f / 16f)
-                .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+                .fillMaxSize()
+                .border(2.dp, Color.Red.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -785,110 +1113,6 @@ fun SplitScene(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun StreamingCard(
-    streamState: RtmpStreamer.StreamState,
-    streamAddress: String,
-    onToggleStream: () -> Unit,
-    onAddressChange: (String) -> Unit
-) {
-    val isLive = streamState == RtmpStreamer.StreamState.LIVE
-    val isConnecting = streamState == RtmpStreamer.StreamState.CONNECTING
-    
-    val statusColor = when (streamState) {
-        RtmpStreamer.StreamState.LIVE -> Color.Red
-        RtmpStreamer.StreamState.CONNECTING -> Color.Yellow
-        RtmpStreamer.StreamState.ERROR -> Color.Red.copy(alpha = 0.5f)
-        else -> TextTertiary
-    }
-    
-    val statusText = when (streamState) {
-        RtmpStreamer.StreamState.LIVE -> "LIVE"
-        RtmpStreamer.StreamState.CONNECTING -> "CONNECTING..."
-        RtmpStreamer.StreamState.ENCODING -> "ENCODING"
-        RtmpStreamer.StreamState.ERROR -> "ERROR"
-        RtmpStreamer.StreamState.OFFLINE -> "OFFLINE"
-    }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Videocam,
-                        contentDescription = null,
-                        tint = statusColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text("RTMP Stream", color = Color.White, fontWeight = FontWeight.Bold)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(statusColor)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(statusText, color = statusColor, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-                
-                Surface(
-                    onClick = {
-                        if (!isConnecting) {
-                            onToggleStream()
-                        }
-                    },
-                    color = if (isLive) Color.Red else AppleGreen,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(40.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isLive) Icons.Default.Stop else Icons.Default.FiberManualRecord,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isLive) "STOP" else "START",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = streamAddress,
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
-                maxLines = 1
-            )
         }
     }
 }

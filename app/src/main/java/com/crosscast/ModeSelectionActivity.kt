@@ -14,7 +14,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +62,10 @@ class ModeSelectionActivity : ComponentActivity() {
                     onStudioSelected = {
                         startActivity(Intent(this, StudioActivity::class.java))
                         finish()
+                    },
+                    onRemoteSelected = {
+                        startActivity(Intent(this, RemoteControlActivity::class.java))
+                        finish()
                     }
                 )
             }
@@ -69,7 +76,8 @@ class ModeSelectionActivity : ComponentActivity() {
 @Composable
 fun HomeScreen(
     onCameraSelected: () -> Unit,
-    onStudioSelected: () -> Unit
+    onStudioSelected: () -> Unit,
+    onRemoteSelected: () -> Unit
 ) {
     val ipAddress = remember { getLocalIpAddress() }
     val serverUrl = remember(ipAddress) { "http://$ipAddress:8080" }
@@ -113,6 +121,17 @@ fun HomeScreen(
             description = "Controla cenas, mistura áudio e transmite para o streaming.",
             accentColor = PurpleOBS,
             onClick = onStudioSelected
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Remote Control Card
+        ModeCard(
+            icon = Icons.Default.PhoneAndroid,
+            title = "Remote Control",
+            description = "Controle as cenas de outro aparelho na mesma rede WiFi.",
+            accentColor = AppleGreen,
+            onClick = onRemoteSelected
         )
 
         Spacer(modifier = Modifier.weight(1f))

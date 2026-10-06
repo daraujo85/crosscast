@@ -65,6 +65,11 @@ class RtmpStreamer(private val context: Context) {
     private var spsPpsData: ByteArray? = null
     private var firstFrameSent = false
 
+    // Configurable encoding parameters
+    private var videoWidth = 1280
+    private var videoHeight = 720
+    private var videoBitrate = 2_500_000
+
     /**
      * Initialize the encoder and prepare for streaming.
      */
@@ -74,9 +79,9 @@ class RtmpStreamer(private val context: Context) {
         }
 
         try {
-            val format = MediaFormat.createVideoFormat(MIME_TYPE, VIDEO_WIDTH, VIDEO_HEIGHT).apply {
+            val format = MediaFormat.createVideoFormat(MIME_TYPE, videoWidth, videoHeight).apply {
                 setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-                setInteger(MediaFormat.KEY_BIT_RATE, VIDEO_BITRATE)
+                setInteger(MediaFormat.KEY_BIT_RATE, videoBitrate)
                 setInteger(MediaFormat.KEY_FRAME_RATE, VIDEO_FRAMERATE)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL)
                 setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
@@ -86,8 +91,8 @@ class RtmpStreamer(private val context: Context) {
             encoder?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             inputSurface = encoder?.createInputSurface()
             encoder?.start()
-            
-            Log.d(TAG, "Encoder initialized: ${VIDEO_WIDTH}x${VIDEO_HEIGHT}")
+
+            Log.d(TAG, "Encoder initialized: ${videoWidth}x${videoHeight}")
             return inputSurface
             
         } catch (e: Exception) {
@@ -251,7 +256,7 @@ class RtmpStreamer(private val context: Context) {
 
             val bitmap = android.graphics.BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
             if (bitmap != null) {
-                val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, VIDEO_WIDTH, VIDEO_HEIGHT, true)
+                val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, videoWidth, videoHeight, true)
                 canvas.drawBitmap(scaled, 0f, 0f, null)
                 if (scaled != bitmap) scaled.recycle()
                 bitmap.recycle()
@@ -373,4 +378,17 @@ class RtmpStreamer(private val context: Context) {
     fun release() {
         stopStream()
     }
+
+    /**
+     * Configure encoding parameters.
+     */
+    fun configure(width: Int, height: Int, bitrate: Int) {
+        videoWidth = width
+        videoHeight = height
+        videoBitrate = bitrate
+    }
+
+    fun getVideoWidth() = videoWidth
+    fun getVideoHeight() = videoHeight
+    fun getVideoBitrate() = videoBitrate
 }

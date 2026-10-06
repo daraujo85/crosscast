@@ -99,6 +99,9 @@ dependencies {
     // implementation(libs.room.ktx)
     // kapt(libs.room.compiler)
 
+    // DataStore for preferences
+    implementation(libs.datastore.preferences)
+
     // RTMP Streaming
     implementation(libs.rtmpLibrary)
 }
