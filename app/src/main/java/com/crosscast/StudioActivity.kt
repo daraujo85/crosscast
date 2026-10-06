@@ -692,7 +692,7 @@ fun SplitScene(
                                 lifecycleOwner = lifecycleOwner,
                                 executor = ContextCompat.getMainExecutor(ctx),
                                 previewView = this,
-                                cameraId = "0"
+                                cameraId = activeCameraId
                             )
                         }
                     },

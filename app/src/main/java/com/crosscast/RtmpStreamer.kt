@@ -122,19 +122,24 @@ class RtmpStreamer(private val context: Context) {
         }
 
         rtmpClient = RtmpClient()
-        rtmpClient?.connect(
-            url = address,
-            onSuccess = {
-                rtmpClient?.publish("")
-                _streamState.value = StreamState.LIVE
-                Log.d(TAG, "Stream started: $address")
-            },
-            onFailure = { e ->
-                Log.e(TAG, "Connection failed", e)
-                _streamState.value = StreamState.ERROR
-                isStreaming.set(false)
-            }
-        )
+        // Run connection on IO dispatcher to avoid NetworkOnMainThreadException
+        streamerScope.launch(Dispatchers.IO) {
+            rtmpClient?.connect(
+                url = address,
+                onSuccess = {
+                    streamerScope.launch(Dispatchers.IO) {
+                        rtmpClient?.publish("")
+                    }
+                    _streamState.value = StreamState.LIVE
+                    Log.d(TAG, "Stream started: $address")
+                },
+                onFailure = { e ->
+                    Log.e(TAG, "Connection failed", e)
+                    _streamState.value = StreamState.ERROR
+                    isStreaming.set(false)
+                }
+            )
+        }
     }
 
     /**
