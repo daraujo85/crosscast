@@ -152,10 +152,7 @@ class StudioActivity : ComponentActivity() {
                 onToggleDetection = { if (obsState.detectionActive) autoSwitchManager.stopHolyricsDetection() else autoSwitchManager.startHolyricsDetection() },
                 streamState = streamState,
                 streamAddress = streamAddress,
-                onToggleStream = {
-                    android.util.Log.d("StudioActivity", "RTMP button clicked, streamState=$streamState")
-                    rtmpStreamer.toggleStream()
-                },
+                onToggleStream = { rtmpStreamer.toggleStream(streamAddress) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -799,25 +796,33 @@ fun StreamingCard(
                     }
                 }
                 
-                Button(
-                    onClick = onToggleStream,
-                    enabled = !isConnecting,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLive) Color.Red else AppleGreen
-                    ),
-                    shape = RoundedCornerShape(8.dp)
+                Surface(
+                    onClick = {
+                        if (!isConnecting) {
+                            onToggleStream()
+                        }
+                    },
+                    color = if (isLive) Color.Red else AppleGreen,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(40.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isLive) Icons.Default.Stop else Icons.Default.FiberManualRecord,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isLive) "STOP" else "START",
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isLive) Icons.Default.Stop else Icons.Default.FiberManualRecord,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isLive) "STOP" else "START",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
             
