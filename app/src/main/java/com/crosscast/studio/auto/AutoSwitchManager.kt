@@ -20,6 +20,7 @@ object AutoSwitchManager {
     val autoSwitchState: StateFlow<AutoSwitchState> = _autoSwitchState.asStateFlow()
 
     fun initialize(context: Context, scope: CoroutineScope) {
+        if (isInitialized) return // Already initialized, preserve current state
         _context = context.applicationContext
         _scope = scope
         initializeDefaultScenes()
