@@ -116,10 +116,10 @@ class AutoSwitchManager(private val context: Context, private val scope: Corouti
                     _autoSwitchState.value = _autoSwitchState.value.copy(isProjecting = hasProj)
                     if (hasProj && !wasProj) {
                         _autoSwitchState.value = _autoSwitchState.value.copy(lastEvent = "projection_start")
-                        if (_autoSwitchState.value.autoSwitchEnabled) activateScene("camera_pip_holyrics")
+                        activateScene("camera_pip_holyrics")
                     } else if (!hasProj && wasProj) {
                         _autoSwitchState.value = _autoSwitchState.value.copy(lastEvent = "projection_end")
-                        if (_autoSwitchState.value.autoSwitchEnabled) activateScene("camera_main")
+                        activateScene("camera_main")
                     }
                 } catch (e: Exception) { Log.e(TAG, "Erro: ${e.message}") }
                 delay(1000)
