@@ -13,11 +13,15 @@ import java.util.concurrent.ConcurrentHashMap
 object AutoSwitchManager {
 
     private const val TAG = "ObsManager"
+    private const val PREFS_NAME = "crosscast_autoswitch"
+    private const val KEY_ACTIVE_SCENE_ID = "active_scene_id"
 
     private var _context: Context? = null
     private var _scope: CoroutineScope? = null
     private val _autoSwitchState = MutableStateFlow(AutoSwitchState())
     val autoSwitchState: StateFlow<AutoSwitchState> = _autoSwitchState.asStateFlow()
+
+    private fun getPrefs() = _context?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun initialize(context: Context, scope: CoroutineScope) {
         if (isInitialized) return // Already initialized, preserve current state
@@ -25,6 +29,20 @@ object AutoSwitchManager {
         _scope = scope
         initializeDefaultScenes()
         initializeDefaultSources()
+        // Restore persisted scene after initialization
+        restoreActiveScene()
+    }
+
+    private fun restoreActiveScene() {
+        val prefs = getPrefs() ?: return
+        val savedSceneId = prefs.getString(KEY_ACTIVE_SCENE_ID, null)
+        if (savedSceneId != null && scenes.containsKey(savedSceneId)) {
+            activateSceneInternal(savedSceneId, persist = false)
+        }
+    }
+
+    private fun persistActiveScene(sceneId: String) {
+        getPrefs()?.edit()?.putString(KEY_ACTIVE_SCENE_ID, sceneId)?.apply()
     }
 
     val isInitialized: Boolean get() = _context != null && _scope != null
@@ -58,9 +76,12 @@ object AutoSwitchManager {
         _autoSwitchState.value = _autoSwitchState.value.copy(availableSources = sources.values.toList())
     }
 
-    fun activateScene(sceneId: String): Boolean {
+    fun activateScene(sceneId: String): Boolean = activateSceneInternal(sceneId, persist = true)
+
+    private fun activateSceneInternal(sceneId: String, persist: Boolean): Boolean {
         val scene = scenes[sceneId] ?: return false
         _autoSwitchState.value = _autoSwitchState.value.copy(activeScene = scene, activeSceneId = sceneId)
+        if (persist) persistActiveScene(sceneId)
         Log.d(TAG, "Cena: ${scene.name}")
         return true
     }
