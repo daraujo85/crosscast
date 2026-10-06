@@ -248,7 +248,8 @@ fun StudioContent(
                     cameraManager = cameraManager,
                     lifecycleOwner = lifecycleOwner,
                     holyricsUrl = "http://192.168.31.231/view/widescreen",
-                    activeCameraId = activeCameraId
+                    activeCameraId = activeCameraId,
+                    isProjecting = obsState.isProjecting
                 )
             }
             "holyrics_only" -> {
@@ -257,73 +258,12 @@ fun StudioContent(
                 )
             }
             else -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(360.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Card(
-                        modifier = Modifier
-                            .aspectRatio(9f / 16f)
-                            .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            AndroidView(
-                                factory = { ctx ->
-                                    PreviewView(ctx).apply {
-                                        scaleType = PreviewView.ScaleType.FILL_CENTER
-                                        cameraManager?.startCameraWithPreview(
-                                            lifecycleOwner = lifecycleOwner,
-                                            executor = ContextCompat.getMainExecutor(ctx),
-                                            previewView = this,
-                                            cameraId = activeCameraId
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            if (cameraManager == null) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(Color(0xFF0A0A0A)),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Videocam,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.2f),
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("Aguardando câmera...", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                                }
-                            }
-                            Surface(
-                                color = Color.Red.copy(alpha = 0.9f),
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .padding(6.dp),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text("PROGRAM", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                            }
-                            Surface(
-                                color = Color.Black.copy(alpha = 0.7f),
-                                shape = RoundedCornerShape(4.dp),
-                                modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(6.dp)
-                            ) {
-                                Text(text = obsState.activeScene?.name ?: "No scene", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                }
+                CameraProgramScene(
+                    cameraManager = cameraManager,
+                    lifecycleOwner = lifecycleOwner,
+                    activeCameraId = activeCameraId,
+                    sceneName = obsState.activeScene?.name ?: "No scene"
+                )
             }
         }
 
@@ -648,9 +588,50 @@ fun SplitScene(
     cameraManager: com.crosscast.camera.CameraManager?,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
     holyricsUrl: String,
-    activeCameraId: String = "0"
+    activeCameraId: String = "0",
+    isProjecting: Boolean = true
 ) {
     var holyricsOk by remember { mutableStateOf(true) }
+
+    // Show full-screen camera if Holyrics is not projecting
+    if (!isProjecting) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(360.dp)
+                .aspectRatio(9f / 16f)
+                .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { ctx ->
+                        PreviewView(ctx).apply {
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                            cameraManager?.startCameraWithPreview(
+                                lifecycleOwner = lifecycleOwner,
+                                executor = ContextCompat.getMainExecutor(ctx),
+                                previewView = this,
+                                cameraId = activeCameraId
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                Surface(
+                    color = Color.Red.copy(alpha = 0.9f),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text("CAM", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        return
+    }
 
     if (holyricsOk) {
         Card(
