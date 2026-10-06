@@ -183,6 +183,7 @@ class RtmpStreamer(private val context: Context) {
      * Toggle streaming on/off.
      */
     fun toggleStream(address: String = DEFAULT_RTMP_URL) {
+        Log.d(TAG, "toggleStream called, isStreaming=${isStreaming.get()}, address=$address")
         if (isStreaming.get()) {
             stopStream()
         } else {

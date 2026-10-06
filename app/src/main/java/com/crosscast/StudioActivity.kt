@@ -152,7 +152,10 @@ class StudioActivity : ComponentActivity() {
                 onToggleDetection = { if (obsState.detectionActive) autoSwitchManager.stopHolyricsDetection() else autoSwitchManager.startHolyricsDetection() },
                 streamState = streamState,
                 streamAddress = streamAddress,
-                onToggleStream = { rtmpStreamer.toggleStream() },
+                onToggleStream = {
+                    android.util.Log.d("StudioActivity", "RTMP button clicked, streamState=$streamState")
+                    rtmpStreamer.toggleStream()
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -580,6 +583,7 @@ fun SplitScene(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(360.dp)
                 .aspectRatio(9f / 16f)
                 .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
@@ -678,6 +682,7 @@ fun SplitScene(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(360.dp)
                 .aspectRatio(9f / 16f)
                 .border(3.dp, Color.Red.copy(alpha = 0.8f), RoundedCornerShape(12.dp)),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
